@@ -6,11 +6,13 @@ import { FeaturedPharmacies } from '../components/home/FeaturedPharmacies';
 
 export const Home: React.FC = () => {
   return (
-    <div className="relative">
+    <div className="relative overflow-x-hidden">
       <HeroSection />
-      <HowItWorks />
-      <FeaturedProducts />
-      <FeaturedPharmacies />
+      <div className="mt-8">
+        <HowItWorks />
+        <FeaturedProducts />
+        <FeaturedPharmacies />
+      </div>
     </div>
   );
 };

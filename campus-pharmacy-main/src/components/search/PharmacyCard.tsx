@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ContactModal } from '../ui/ContactModal';
+import { FaMapMarkerAlt } from 'react-icons/fa';
 
 interface Medicine {
   id: string;
@@ -46,9 +47,9 @@ export const PharmacyCard: React.FC<PharmacyCardProps> = ({ pharmacy, medicines 
         <div className="p-4">
           <h3 className="text-xl font-semibold mb-2">{pharmacy.name}</h3>
           <div className="space-y-2 text-gray-600 mb-4">
-            <p>📍 {pharmacy.location}</p>
-            <p>⏰ {pharmacy.hours}</p>
-            <p>📞 {pharmacy.phone}</p>
+            <p> {pharmacy.location}</p>
+            <p> {pharmacy.hours}</p>
+            <p> {pharmacy.phone}</p>
           </div>
 
           {/* Medicines List */}
@@ -65,7 +66,7 @@ export const PharmacyCard: React.FC<PharmacyCardProps> = ({ pharmacy, medicines 
                   <div className="flex justify-between items-center">
                     <span>{medicine.name}</span>
                     <span className="font-semibold text-blue-600">
-                      ₵{medicine.price.toFixed(2)}
+                      {medicine.price.toFixed(2)}
                     </span>
                   </div>
                   <div className="text-sm">
@@ -84,9 +85,9 @@ export const PharmacyCard: React.FC<PharmacyCardProps> = ({ pharmacy, medicines 
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={handleGetDirections}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors flex items-center justify-center"
             >
-              Get Directions
+              <FaMapMarkerAlt className="mr-2" /> Get Directions
             </button>
             <button
               onClick={() => setShowContact(true)}
