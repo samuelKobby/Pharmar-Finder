@@ -80,7 +80,8 @@ export const SearchResults: React.FC = () => {
 
         setSearchResults(results);
       } catch (err) {
-        setError(err.message);
+        console.error('Search error:', err);
+        setError(err instanceof Error ? err.message : 'An unexpected error occurred');
       } finally {
         setLoading(false);
       }
@@ -109,65 +110,47 @@ export const SearchResults: React.FC = () => {
     );
   }
 
+  if (searchResults.length === 0) {
+    return (
+      <div className="container mx-auto px-4 py-8 mt-16">
+        <div className="text-center">
+          <p className="text-gray-600">No results found for "{query}"</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 mt-16">
-      <h1 className="text-2xl font-bold mb-6">
+      <h2 className="text-2xl font-bold mb-6">
         Search Results for "{query}"
-      </h1>
-
-      {searchResults.length === 0 ? (
-        <div className="text-center py-8">
-          <p className="text-gray-600">No pharmacies found with matching medicines.</p>
-        </div>
-      ) : (
-        <div className="space-y-8">
-          {searchResults.map(({ pharmacy, medicines }) => (
-            <div key={pharmacy.id} className="bg-white rounded-lg shadow-md overflow-hidden">
-              <div className="p-6">
-                <div className="flex items-start">
-                  <div className="w-1/4">
-                    <img 
-                      src={pharmacy.image || 'https://via.placeholder.com/400x300'} 
-                      alt={pharmacy.name}
-                      className="w-full h-48 object-cover rounded-lg"
-                    />
-                  </div>
-                  <div className="w-3/4 pl-6">
-                    <h2 className="text-xl font-semibold mb-2">{pharmacy.name}</h2>
-                    <p className="text-gray-600 mb-2">📍 {pharmacy.location}</p>
-                    <p className="text-gray-600 mb-2">⏰ {pharmacy.hours}</p>
-                    <p className="text-gray-600 mb-4">📞 {pharmacy.phone}</p>
-                    
-                    <div className="mt-4">
-                      <h3 className="text-lg font-semibold mb-2">Available Medicines:</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {medicines.map(medicine => (
-                          <div key={medicine.id} className="bg-gray-50 p-4 rounded-lg">
-                            <div className="flex items-center">
-                              <img 
-                                src={medicine.image || 'https://via.placeholder.com/100x100'} 
-                                alt={medicine.name}
-                                className="w-16 h-16 object-cover rounded-lg mr-4"
-                              />
-                              <div>
-                                <h4 className="font-semibold">{medicine.name}</h4>
-                                <p className="text-gray-600 text-sm">{medicine.description}</p>
-                                <p className="text-green-600 font-semibold mt-1">
-                                  ${medicine.price.toFixed(2)} per {medicine.unit}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+      </h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {searchResults.map(({ pharmacy, medicines }) => (
+          <div key={pharmacy.id} className="bg-white rounded-lg shadow-md p-6">
+            <img
+              src={pharmacy.image}
+              alt={pharmacy.name}
+              className="w-full h-48 object-cover rounded-lg mb-4"
+            />
+            <h3 className="text-xl font-semibold mb-2">{pharmacy.name}</h3>
+            <p className="text-gray-600 mb-2">{pharmacy.location}</p>
+            <p className="text-gray-600 mb-2">Hours: {pharmacy.hours}</p>
+            <p className="text-gray-600 mb-4">Phone: {pharmacy.phone}</p>
+            <div className="border-t pt-4">
+              <h4 className="font-semibold mb-2">Available Medicines:</h4>
+              <ul className="space-y-2">
+                {medicines.map(medicine => (
+                  <li key={medicine.id} className="flex justify-between">
+                    <span>{medicine.name}</span>
+                    <span className="font-semibold">GH₵{medicine.price.toFixed(2)}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

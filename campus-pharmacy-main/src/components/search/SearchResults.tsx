@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
 import { Pagination } from '../ui/Pagination';
 import { PharmacyCard } from './PharmacyCard';
-import { categories, pharmacies } from '../../data/sampleData';
+import { medicines, pharmacies } from '../../data/sampleData';
+import { Medication, Pharmacy } from '../../types';
 
 interface SearchResultsProps {
   query: string;
+}
+
+interface PharmacyWithMedicines extends Pharmacy {
+  matchingMedicines: Medication[];
 }
 
 export const SearchResults: React.FC<SearchResultsProps> = ({ query }) => {
@@ -12,26 +17,29 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ query }) => {
   const itemsPerPage = 6;
 
   // Find all medicines that match the search query
-  const matchingMedicines = categories.flatMap(category =>
-    category.medicines.filter(medicine =>
+  const matchingMedicines = medicines.filter(
+    (medicine: Medication) =>
       medicine.name.toLowerCase().includes(query.toLowerCase()) ||
       medicine.description.toLowerCase().includes(query.toLowerCase())
-    )
   );
 
   // Find pharmacies that have matching medicines
-  const pharmaciesWithMedicine = pharmacies.map(pharmacy => ({
+  const pharmaciesWithMedicine = pharmacies.map((pharmacy: Pharmacy) => ({
     ...pharmacy,
-    matchingMedicines: matchingMedicines.filter(medicine => 
-      pharmacy.available
-    )
-  })).filter(pharmacy => pharmacy.matchingMedicines.length > 0);
+    matchingMedicines: matchingMedicines.filter((medicine: Medication) =>
+      medicine.pharmacies.includes(pharmacy.id)
+    ),
+  })).filter((pharmacy) => pharmacy.matchingMedicines.length > 0);
 
   // Calculate pagination
   const totalPages = Math.ceil(pharmaciesWithMedicine.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentResults = pharmaciesWithMedicine.slice(startIndex, endIndex);
+  const currentPharmacies = pharmaciesWithMedicine.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
 
   return (
     <div className="space-y-8">
@@ -40,7 +48,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ query }) => {
       </h2>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {currentResults.map(pharmacy => (
+        {currentPharmacies.map((pharmacy) => (
           <PharmacyCard
             key={pharmacy.id}
             pharmacy={pharmacy}
@@ -53,7 +61,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ query }) => {
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
-          onPageChange={setCurrentPage}
+          onPageChange={handlePageChange}
         />
       )}
 
