@@ -1,16 +1,26 @@
 export interface Medication {
   id: string;
   name: string;
-  category: string;
   description: string;
+  category: string;
   price: number;
-  availability: boolean;
+  unit: string;
+  available: boolean;
+  image: string;
+  pharmacies: string[];
 }
 
 export interface Pharmacy {
   id: string;
   name: string;
   location: string;
-  contact: string;
-  medications: string[]; // Array of medication IDs
+  hours: string;
+  phone: string;
+  available: boolean;
+  image: string;
+}
+
+export interface SearchResult {
+  pharmacy: Pharmacy;
+  medicines: Medication[];
 }

@@ -5,7 +5,7 @@ import { Medication } from '../../types';
 
 export const FeaturedProducts: React.FC = () => {
   // Get first 6 medicines
-  const featuredMedicines: Medication[] = medicines.slice(0, 6);
+  const featuredMedicines = medicines.slice(0, 6);
 
   return (
     <section className="py-16 bg-gray-50">

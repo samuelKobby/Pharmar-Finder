@@ -18,18 +18,20 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ query }) => {
 
   // Find all medicines that match the search query
   const matchingMedicines = medicines.filter(
-    (medicine: Medication) =>
+    (medicine) =>
       medicine.name.toLowerCase().includes(query.toLowerCase()) ||
       medicine.description.toLowerCase().includes(query.toLowerCase())
   );
 
   // Find pharmacies that have matching medicines
-  const pharmaciesWithMedicine = pharmacies.map((pharmacy: Pharmacy) => ({
-    ...pharmacy,
-    matchingMedicines: matchingMedicines.filter((medicine: Medication) =>
-      medicine.pharmacies.includes(pharmacy.id)
-    ),
-  })).filter((pharmacy) => pharmacy.matchingMedicines.length > 0);
+  const pharmaciesWithMedicine = pharmacies
+    .map((pharmacy) => ({
+      ...pharmacy,
+      matchingMedicines: matchingMedicines.filter((medicine) =>
+        medicine.pharmacies.includes(pharmacy.id)
+      ),
+    }))
+    .filter((pharmacy) => pharmacy.matchingMedicines.length > 0);
 
   // Calculate pagination
   const totalPages = Math.ceil(pharmaciesWithMedicine.length / itemsPerPage);
@@ -42,13 +44,13 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ query }) => {
   };
 
   return (
-    <div className="space-y-8">
-      <h2 className="text-2xl font-bold">
+    <div className="container mx-auto px-4 py-8">
+      <h2 className="text-2xl font-bold mb-6">
         Found {pharmaciesWithMedicine.length} pharmacies with matching medicines
       </h2>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {currentPharmacies.map((pharmacy) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {currentPharmacies.map((pharmacy: PharmacyWithMedicines) => (
           <PharmacyCard
             key={pharmacy.id}
             pharmacy={pharmacy}
@@ -58,16 +60,12 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ query }) => {
       </div>
 
       {totalPages > 1 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={handlePageChange}
-        />
-      )}
-
-      {pharmaciesWithMedicine.length === 0 && (
-        <div className="text-center py-8">
-          <p className="text-gray-600">No pharmacies found with matching medicines.</p>
+        <div className="mt-8">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+          />
         </div>
       )}
     </div>
