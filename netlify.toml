@@ -1,7 +1,7 @@
 [build]
-command = "pip install -r requirements.txt"
-publish = "src"
-functions = "src/functions"
+base = "campus-pharmacy-main"
+command = "npm install && npm run build"
+publish = "dist"
 
 [build.environment]
 PYTHON_VERSION = "3.9"
