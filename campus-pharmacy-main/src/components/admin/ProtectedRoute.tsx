@@ -12,25 +12,27 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const location = useLocation();
 
   useEffect(() => {
-    checkAuth();
-    
-    // Subscribe to auth changes
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN') {
-        await validateAdminUser(session?.user?.id);
+    // Initialize session persistence
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        validateAdminUser(session.user.id);
       } else if (event === 'SIGNED_OUT') {
         setIsAuthenticated(false);
       }
     });
 
+    // Check initial session
+    checkAuth();
+
     return () => {
-      authListener?.subscription.unsubscribe();
+      supabase.auth.onAuthStateChange(() => {}); // Cleanup subscription
     };
   }, []);
 
   const validateAdminUser = async (userId: string | undefined) => {
     if (!userId) {
       setIsAuthenticated(false);
+      setLoading(false);
       return;
     }
 
@@ -41,28 +43,71 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
         .eq('id', userId)
         .single();
 
-      setIsAuthenticated(!!adminUser && !error);
+      if (adminUser && !error) {
+        setIsAuthenticated(true);
+        // Store admin session data
+        localStorage.setItem('adminUser', JSON.stringify(adminUser));
+      } else {
+        setIsAuthenticated(false);
+        localStorage.removeItem('adminUser');
+      }
     } catch (error) {
       console.error('Error validating admin user:', error);
       setIsAuthenticated(false);
+      localStorage.removeItem('adminUser');
+    } finally {
+      setLoading(false);
     }
   };
 
   const checkAuth = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        throw error;
+      }
+
       if (session?.user) {
-        await validateAdminUser(session.user.id);
+        // Check if we have cached admin data
+        const cachedAdmin = localStorage.getItem('adminUser');
+        if (cachedAdmin) {
+          setIsAuthenticated(true);
+          setLoading(false);
+          // Validate in background
+          validateAdminUser(session.user.id);
+        } else {
+          await validateAdminUser(session.user.id);
+        }
       } else {
         setIsAuthenticated(false);
+        setLoading(false);
+        localStorage.removeItem('adminUser');
       }
     } catch (error) {
       console.error('Error checking auth status:', error);
       setIsAuthenticated(false);
-    } finally {
       setLoading(false);
+      localStorage.removeItem('adminUser');
     }
   };
+
+  // Increased timeout and added loading state check
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        console.warn('Auth check timed out');
+        setLoading(false);
+        // Don't automatically set authenticated to false, maintain previous state
+        const cachedAdmin = localStorage.getItem('adminUser');
+        if (cachedAdmin) {
+          setIsAuthenticated(true);
+        }
+      }
+    }, 10000); // Increased to 10 seconds
+
+    return () => clearTimeout(timeoutId);
+  }, [loading]);
 
   if (loading) {
     return (
@@ -73,7 +118,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }
 
   if (!isAuthenticated) {
-    // Redirect to login page with return url
     return <Navigate to="/admin/login" state={{ from: location }} replace />;
   }
 

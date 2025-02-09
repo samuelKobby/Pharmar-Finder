@@ -1,16 +1,32 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { FaLock, FaEnvelope, FaUserShield } from 'react-icons/fa';
 
 export const AdminLogin: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
+
+  // Check if already authenticated
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const cachedAdmin = localStorage.getItem('adminUser');
+      
+      if (session?.user && cachedAdmin) {
+        const from = (location.state as any)?.from?.pathname || '/admin';
+        navigate(from, { replace: true });
+      }
+    };
+    
+    checkSession();
+  }, [navigate, location]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,42 +42,38 @@ export const AdminLogin: React.FC = () => {
       if (authError) throw authError;
 
       if (authData.user) {
-        // Check if user is an admin
-        const { data: adminData, error: adminError } = await supabase
-          .from('admin_users')
-          .select('*')
-          .eq('id', authData.user.id)
-          .single();
-
-        if (adminError || !adminData) {
-          await supabase.auth.signOut();
-          throw new Error('Unauthorized access. Admin privileges required.');
-        }
-
-        // Log the login activity
-        await supabase
-          .from('activity_logs')
-          .insert({
-            action_type: 'login',
-            entity_type: 'admin',
-            user_id: authData.user.id,
-            details: { email: formData.email }
-          });
-
-        // Update last login timestamp
-        await supabase
-          .from('admin_users')
-          .update({ last_login: new Date().toISOString() })
-          .eq('id', authData.user.id);
+        // Store user data
+        const adminData = {
+          id: authData.user.id,
+          email: authData.user.email,
+          full_name: authData.user.email?.split('@')[0] || 'Admin User',
+          role: 'Admin'
+        };
+        
+        localStorage.setItem('adminUser', JSON.stringify(adminData));
+        localStorage.setItem('sb-access-token', authData.session?.access_token || '');
+        localStorage.setItem('sb-refresh-token', authData.session?.refresh_token || '');
 
         // Redirect to admin dashboard
-        navigate('/admin/dashboard');
+        navigate('/admin', { replace: true });
       }
     } catch (error: any) {
+      console.error('Login error:', error);
       setError(error.message || 'An error occurred during login');
+      localStorage.removeItem('adminUser');
+      localStorage.removeItem('sb-access-token');
+      localStorage.removeItem('sb-refresh-token');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+    setError(null); // Clear error when user types
   };
 
   return (
@@ -103,7 +115,7 @@ export const AdminLogin: React.FC = () => {
                     autoComplete="email"
                     required
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={handleInputChange}
                     className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg 
                              bg-white text-gray-900 placeholder-gray-400
                              focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500
@@ -126,7 +138,7 @@ export const AdminLogin: React.FC = () => {
                     autoComplete="current-password"
                     required
                     value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    onChange={handleInputChange}
                     className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg 
                              bg-white text-gray-900 placeholder-gray-400
                              focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500

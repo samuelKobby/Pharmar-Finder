@@ -5,7 +5,7 @@ import { Header } from '../../components/admin/Header';
 import { DashboardStats } from '../../components/admin/DashboardStats';
 import { ActivityLog } from '../../components/admin/ActivityLog';
 import { Analytics } from './Analytics';
-import { Categories } from './Categories';
+import { PharmacyManagement } from './Categories';
 import { Inventory } from './Inventory';
 import { Notifications } from './Notifications';
 import { Users } from './Users';
@@ -34,30 +34,75 @@ export const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     checkAuth();
-  }, []);
+
+    // Subscribe to auth changes
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setAdminUser(null);
+        localStorage.removeItem('adminUser');
+        localStorage.removeItem('sb-access-token');
+        localStorage.removeItem('sb-refresh-token');
+        navigate('/admin/login');
+      } else if (event === 'SIGNED_IN' && session) {
+        await validateAdminUser(session.user.id);
+      }
+    });
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, [navigate]);
+
+  const validateAdminUser = async (userId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('No user found');
+      }
+
+      const adminData = {
+        id: user.id,
+        full_name: user.email?.split('@')[0] || 'Admin User',
+        email: user.email || '',
+        role: 'Admin'
+      };
+
+      setAdminUser(adminData);
+      localStorage.setItem('adminUser', JSON.stringify(adminData));
+    } catch (error) {
+      console.error('Error validating admin user:', error);
+      setAdminUser(null);
+      localStorage.removeItem('adminUser');
+      navigate('/admin/login');
+    }
+  };
 
   const checkAuth = async () => {
     try {
+      setLoading(true);
+
+      // Get current user session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (sessionError || !session) {
+      if (sessionError || !session?.user) {
         throw new Error('No session found');
       }
 
-      const { data: adminData, error: adminError } = await supabase
-        .from('admin_users')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
-
-      if (adminError || !adminData) {
-        console.error('Admin data error:', adminError);
-        throw new Error('Admin user not found');
-      }
+      // Get or create admin data
+      const adminData = {
+        id: session.user.id,
+        full_name: session.user.email?.split('@')[0] || 'Admin User',
+        email: session.user.email || '',
+        role: 'Admin'
+      };
 
       setAdminUser(adminData);
+      localStorage.setItem('adminUser', JSON.stringify(adminData));
     } catch (error) {
       console.error('Error checking auth:', error);
+      setAdminUser(null);
+      localStorage.removeItem('adminUser');
       navigate('/admin/login');
     } finally {
       setLoading(false);
@@ -99,21 +144,22 @@ export const AdminDashboard: React.FC = () => {
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header 
-          adminName={adminUser?.full_name || 'Admin User'} 
+          adminName={adminUser.full_name}
           onMenuClick={() => setIsSidebarOpen(true)}
         />
         
-        {/* Main content area */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
-          <Routes>
-            <Route index element={<DashboardHome />} />
-            <Route path="analytics" element={<Analytics />} />
-            <Route path="categories" element={<Categories />} />
-            <Route path="inventory" element={<Inventory />} />
-            <Route path="notifications" element={<Notifications />} />
-            <Route path="users" element={<Users />} />
-            <Route path="settings" element={<Settings />} />
-          </Routes>
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100">
+          <div className="container mx-auto px-6 py-8">
+            <Routes>
+              <Route path="/" element={<DashboardHome />} />
+              <Route path="/analytics" element={<Analytics />} />
+              <Route path="/pharmacies" element={<PharmacyManagement />} />
+              <Route path="/inventory" element={<Inventory />} />
+              <Route path="/notifications" element={<Notifications />} />
+              <Route path="/users" element={<Users />} />
+              <Route path="/settings" element={<Settings />} />
+            </Routes>
+          </div>
         </main>
       </div>
     </div>

@@ -29,7 +29,7 @@ export const Footer: React.FC = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/pharmacy-login" className="text-gray-400 hover:text-white">
+                <Link to="/pharmacy/login" className="text-gray-400 hover:text-white">
                   Pharmacy Login
                 </Link>
               </li>

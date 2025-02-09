@@ -12,7 +12,8 @@ import {
   FaClipboardList,
   FaChartLine,
   FaBell,
-  FaUsers
+  FaUsers,
+  FaStore
 } from 'react-icons/fa';
 import { supabase } from '../../lib/supabase';
 
@@ -31,7 +32,7 @@ const menuItems = [
   {
     label: 'Management',
     items: [
-      { path: '/admin/categories', icon: FaList, label: 'Categories' },
+      { path: '/admin/pharmacies', icon: FaStore, label: 'Pharmacy Management' },
       { path: '/admin/inventory', icon: FaClipboardList, label: 'Inventory' },
     ]
   },

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FaBell, FaUserCircle, FaBars, FaCog, FaSignOutAlt } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../../lib/supabase';
 
 interface HeaderProps {
   adminName: string;
@@ -15,6 +16,7 @@ interface Notification {
 }
 
 export const Header: React.FC<HeaderProps> = ({ adminName, onMenuClick }) => {
+  const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   
@@ -40,9 +42,14 @@ export const Header: React.FC<HeaderProps> = ({ adminName, onMenuClick }) => {
     }
   ];
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminToken');
-    window.location.href = '/admin';
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      navigate('/admin/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
   return (
