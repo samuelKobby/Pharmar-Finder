@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { usePharmacyAuth } from '../../contexts/PharmacyAuthContext';
 import { supabase } from '../../lib/supabase';
+import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-hot-toast';
 import {
   Package2,
   AlertTriangle,
@@ -52,6 +53,7 @@ interface Medicine {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 export const PharmacyDashboard: React.FC = () => {
+  const { pharmacyId, logout } = usePharmacyAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats>({
     totalMedicines: 0,
@@ -65,93 +67,77 @@ export const PharmacyDashboard: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    const initializeDashboard = async () => {
+      try {
+        setLoading(true);
+        if (!pharmacyId) {
+          navigate('/pharmacy/login', { replace: true });
+          return;
+        }
 
-  const fetchDashboardData = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error('Please login to view the dashboard');
-        navigate('/pharmacy/login');
-        return;
-      }
+        // Get all medicine-pharmacy relationships for this pharmacy
+        const { data, error: relationError } = await supabase
+          .from('medicine_pharmacies')
+          .select(`
+            quantity,
+            medicines (
+              id,
+              name,
+              category,
+              price,
+              description,
+              unit
+            )
+          `)
+          .eq('pharmacy_id', pharmacyId);
 
-      const pharmacyId = localStorage.getItem('pharmacyId');
-      if (!pharmacyId) {
-        toast.error('No pharmacy ID found. Please login again.');
-        return;
-      }
+        if (relationError) throw relationError;
 
-      // Get all medicine-pharmacy relationships for this pharmacy
-      const { data, error: relationError } = await supabase
-        .from('medicine_pharmacies')
-        .select(`
-          id,
-          name,
-          category,
-          quantity,
-          price,
-          description,
-          unit
-        `)
-        .eq('pharmacy_id', pharmacyId);
-
-      if (relationError) throw relationError;
-
-      const medicineData = data?.map(mp => ({
-        id: mp.id,
-        name: mp.name,
-        category: mp.category,
-        quantity: mp.quantity,
-        price: mp.price,
-        description: mp.description,
-        unit: mp.unit
-      })) || [];
-
-      setMedicines(medicineData);
-
-      // Calculate stats
-      const totalMedicines = medicineData.length;
-      const inStock = medicineData.filter(m => m.quantity > 10).length;
-      const lowStock = medicineData.filter(m => m.quantity > 0 && m.quantity <= 10).length;
-      const outOfStock = medicineData.filter(m => m.quantity === 0).length;
-
-      // Get popular medicines (sorted by quantity)
-      const popularMedicines = [...medicineData]
-        .sort((a, b) => b.quantity - a.quantity)
-        .slice(0, 5)
-        .map(m => ({
-          name: m.name,
-          quantity: m.quantity,
-          category: m.category
+        const medicines = (data || []).map(item => ({
+          id: item.medicines.id,
+          name: item.medicines.name,
+          category: item.medicines.category,
+          quantity: item.quantity,
+          price: item.medicines.price,
+          description: item.medicines.description,
+          unit: item.medicines.unit
         }));
 
-      // Calculate category distribution
-      const categoryMap = medicineData.reduce((acc, medicine) => {
-        acc[medicine.category] = (acc[medicine.category] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
+        setMedicines(medicines);
 
-      const categoryDistribution = Object.entries(categoryMap)
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value);
+        // Calculate dashboard stats
+        const stats: DashboardStats = {
+          totalMedicines: medicines.length,
+          inStock: medicines.filter(m => m.quantity > 0).length,
+          outOfStock: medicines.filter(m => m.quantity === 0).length,
+          lowStock: medicines.filter(m => m.quantity > 0 && m.quantity <= 10).length,
+          popularMedicines: medicines
+            .sort((a, b) => b.quantity - a.quantity)
+            .slice(0, 5)
+            .map(m => ({
+              name: m.name,
+              quantity: m.quantity,
+              category: m.category
+            })),
+          categoryDistribution: Object.entries(
+            medicines.reduce((acc, med) => {
+              acc[med.category] = (acc[med.category] || 0) + 1;
+              return acc;
+            }, {} as Record<string, number>)
+          ).map(([name, value]) => ({ name, value }))
+        };
 
-      setStats({
-        totalMedicines,
-        inStock,
-        outOfStock,
-        lowStock,
-        popularMedicines,
-        categoryDistribution
-      });
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      toast.error('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
-  };
+        setStats(stats);
+      } catch (error: any) {
+        console.error('Error fetching dashboard data:', error);
+        toast.error('Error loading dashboard data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeDashboard();
+  }, [navigate, pharmacyId]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -181,7 +167,78 @@ export const PharmacyDashboard: React.FC = () => {
         </div>
         <div className="mt-4 flex md:mt-0 md:ml-4">
           <button
-            onClick={fetchDashboardData}
+            onClick={() => {
+              setLoading(true);
+              const initializeDashboard = async () => {
+                try {
+                  if (!pharmacyId) {
+                    toast.error('No pharmacy ID found. Please login again.');
+                    navigate('/pharmacy/login');
+                    return;
+                  }
+
+                  // Get all medicine-pharmacy relationships for this pharmacy
+                  const { data, error: relationError } = await supabase
+                    .from('medicine_pharmacies')
+                    .select(`
+                      quantity,
+                      medicines (
+                        id,
+                        name,
+                        category,
+                        price,
+                        description,
+                        unit
+                      )
+                    `)
+                    .eq('pharmacy_id', pharmacyId);
+
+                  if (relationError) throw relationError;
+
+                  const medicines = (data || []).map(item => ({
+                    id: item.medicines.id,
+                    name: item.medicines.name,
+                    category: item.medicines.category,
+                    quantity: item.quantity,
+                    price: item.medicines.price,
+                    description: item.medicines.description,
+                    unit: item.medicines.unit
+                  }));
+
+                  setMedicines(medicines);
+
+                  // Calculate dashboard stats
+                  const stats: DashboardStats = {
+                    totalMedicines: medicines.length,
+                    inStock: medicines.filter(m => m.quantity > 0).length,
+                    outOfStock: medicines.filter(m => m.quantity === 0).length,
+                    lowStock: medicines.filter(m => m.quantity > 0 && m.quantity <= 10).length,
+                    popularMedicines: medicines
+                      .sort((a, b) => b.quantity - a.quantity)
+                      .slice(0, 5)
+                      .map(m => ({
+                        name: m.name,
+                        quantity: m.quantity,
+                        category: m.category
+                      })),
+                    categoryDistribution: Object.entries(
+                      medicines.reduce((acc, med) => {
+                        acc[med.category] = (acc[med.category] || 0) + 1;
+                        return acc;
+                      }, {} as Record<string, number>)
+                    ).map(([name, value]) => ({ name, value }))
+                  };
+
+                  setStats(stats);
+                } catch (error: any) {
+                  console.error('Error fetching dashboard data:', error);
+                  toast.error('Error loading dashboard data');
+                } finally {
+                  setLoading(false);
+                }
+              };
+              initializeDashboard();
+            }}
             className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
             <RefreshCw className="h-4 w-4 mr-2" />

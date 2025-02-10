@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { usePharmacyAuth } from '../../contexts/PharmacyAuthContext';
 import { supabase } from '../../lib/supabase';
+import toast from 'react-hot-toast';
 import { 
   Plus, 
   Search, 
@@ -19,8 +21,8 @@ import {
   Image as ImageIcon,
   Trash2 as TrashIcon
 } from 'lucide-react';
-import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import placeholderImage from '../../assets/placeholder.svg';
 
 interface Medicine {
   id: string;
@@ -473,10 +475,11 @@ const getMedicineImageUrl = (medicineId: string) => {
 };
 
 const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-  e.currentTarget.src = 'https://via.placeholder.com/150?text=No+Image';
+  e.currentTarget.src = placeholderImage;
 };
 
 export const PharmacyInventory: React.FC = () => {
+  const { pharmacyId } = usePharmacyAuth();
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -488,58 +491,56 @@ export const PharmacyInventory: React.FC = () => {
   const [isAddingExisting, setIsAddingExisting] = useState(false);
   const navigate = useNavigate();
 
+  // Filter medicines based on search term and category
+  const filteredMedicines = medicines.filter(medicine => {
+    const matchesSearch = medicine.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || medicine.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
   React.useEffect(() => {
-    checkAuth();
     fetchMedicines();
     fetchAllMedicines();
   }, []);
 
-  const checkAuth = async () => {
-    const { data: { session }, error } = await supabase.auth.getSession();
-    if (!session) {
-      navigate('/pharmacy/login');
-    }
-  };
-
   const fetchMedicines = async () => {
     try {
-      const pharmacyId = localStorage.getItem('pharmacyId');
-      if (!pharmacyId) {
-        toast.error('No pharmacy ID found');
-        return;
-      }
+      setLoading(true);
+      if (!pharmacyId) return;
 
-      const { data: medicinePharmacyData, error: relationError } = await supabase
+      // First get the medicine_pharmacies entries
+      const { data: medicinePharmacies, error: mpError } = await supabase
         .from('medicine_pharmacies')
-        .select('*')
+        .select('medicine_id, quantity')
         .eq('pharmacy_id', pharmacyId);
 
-      if (relationError) {
-        throw relationError;
-      }
+      if (mpError) throw mpError;
 
-      const medicineIds = medicinePharmacyData.map(item => item.medicine_id);
-
-      const { data: medicinesData, error: medicinesError } = await supabase
+      // Then get all medicines
+      const { data: medicinesData, error: medError } = await supabase
         .from('medicines')
-        .select('*')
-        .in('id', medicineIds);
+        .select('*');
 
-      if (medicinesError) {
-        throw medicinesError;
-      }
+      if (medError) throw medError;
 
-      // Combine medicine data with quantities
-      const medicinesWithQuantity = medicinesData.map(medicine => {
-        const relationData = medicinePharmacyData.find(item => item.medicine_id === medicine.id);
-        return {
-          ...medicine,
-          quantity: relationData?.quantity || 0,
-          imageUrl: getMedicineImageUrl(medicine.id)
-        };
-      });
+      // Map the quantities to the medicines
+      const formattedData = medicinesData
+        .map(medicine => {
+          const pharmacyEntry = medicinePharmacies?.find(mp => mp.medicine_id === medicine.id);
+          return {
+            id: medicine.id,
+            name: medicine.name,
+            category: medicine.category,
+            price: medicine.price,
+            description: medicine.description,
+            unit: medicine.unit,
+            imageUrl: medicine.image_url,
+            quantity: pharmacyEntry?.quantity || 0
+          };
+        })
+        .filter(medicine => medicine.quantity > 0); // Only show medicines with stock
 
-      setMedicines(medicinesWithQuantity);
+      setMedicines(formattedData);
     } catch (error: any) {
       console.error('Error fetching medicines:', error);
       toast.error('Failed to fetch medicines');
@@ -580,21 +581,8 @@ export const PharmacyInventory: React.FC = () => {
 
   const handleAddMedicine = async (medicine: Omit<Medicine, 'id'>) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate('/pharmacy/login');
-        return;
-      }
-
-      console.log('Current auth session:', session);
-      console.log('User metadata:', session.user.user_metadata);
-      console.log('Adding medicine:', medicine);
-
-      const pharmacyId = localStorage.getItem('pharmacyId');
-      console.log('Pharmacy ID from localStorage:', pharmacyId);
-      
       if (!pharmacyId) {
-        toast.error('No pharmacy ID found. Please login again.');
+        toast.error('No pharmacy ID found');
         return;
       }
 
@@ -611,45 +599,28 @@ export const PharmacyInventory: React.FC = () => {
         .select()
         .single();
 
-      console.log('Medicine insert response:', { data: medicineData, error: medicineError });
-
-      if (medicineError) {
-        console.error('Error inserting medicine:', medicineError);
-        throw medicineError;
-      }
+      if (medicineError) throw medicineError;
 
       // Then create the association in medicine_pharmacies
-      const associationData = {
-        medicine_id: medicineData.id,
-        pharmacy_id: pharmacyId,
-        quantity: medicine.quantity || 0
-      };
-      console.log('Creating association with data:', associationData);
-
       const { error: associationError } = await supabase
         .from('medicine_pharmacies')
-        .insert([associationData]);
+        .insert([{
+          medicine_id: medicineData.id,
+          pharmacy_id: pharmacyId,
+          quantity: medicine.quantity
+        }]);
 
-      console.log('Association insert response:', { error: associationError });
+      if (associationError) throw associationError;
 
-      if (associationError) {
-        console.error('Error creating association:', associationError);
-        throw associationError;
-      }
-
+      // Handle image upload if present
       if (medicine.image) {
-        const { data: imageData, error: imageError } = await supabase.storage
+        const { error: imageError } = await supabase.storage
           .from('medicine-images')
           .upload(`${medicineData.id}.jpg`, medicine.image, {
             upsert: true
           });
 
-        console.log('Image upload response:', { data: imageData, error: imageError });
-
-        if (imageError) {
-          console.error('Error uploading image:', imageError);
-          throw imageError;
-        }
+        if (imageError) throw imageError;
       }
 
       toast.success('Medicine added successfully');
@@ -661,79 +632,71 @@ export const PharmacyInventory: React.FC = () => {
     }
   };
 
-  const handleAddExistingMedicine = async (medicineId: string, quantity: number) => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate('/pharmacy/login');
-      }
+  const [selectedMedicine, setSelectedMedicine] = useState<Medicine | null>(null);
+  const [quantity, setQuantity] = useState('');
+  const [showAddExistingForm, setShowAddExistingForm] = useState(false);
 
-      console.log('Adding existing medicine:', { medicineId, quantity });
-      
-      const pharmacyId = localStorage.getItem('pharmacyId');
-      if (!pharmacyId) {
-        toast.error('No pharmacy ID found. Please login again.');
+  const handleAddExistingMedicine = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      if (!selectedMedicine || !quantity) {
+        toast.error('Please select a medicine and enter quantity');
         return;
       }
 
-      // Check if the medicine is already in the pharmacy's inventory
-      const { data: existingAssociation, error: checkError } = await supabase
+      // Check if medicine already exists in pharmacy's inventory
+      const { data: existingData, error: existingError } = await supabase
         .from('medicine_pharmacies')
         .select('*')
-        .eq('medicine_id', medicineId)
         .eq('pharmacy_id', pharmacyId)
+        .eq('medicine_id', selectedMedicine.id)
         .single();
 
-      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 means no rows returned
-        throw checkError;
+      if (existingError && existingError.code !== 'PGRST116') {
+        throw existingError;
       }
 
-      if (existingAssociation) {
-        // Update existing association
+      if (existingData) {
+        // Update existing quantity
         const { error: updateError } = await supabase
           .from('medicine_pharmacies')
-          .update({ quantity })
-          .eq('medicine_id', medicineId)
-          .eq('pharmacy_id', pharmacyId);
+          .update({ quantity: existingData.quantity + Number(quantity) })
+          .eq('pharmacy_id', pharmacyId)
+          .eq('medicine_id', selectedMedicine.id);
 
         if (updateError) throw updateError;
-        toast.success('Medicine quantity updated');
+        toast.success('Medicine quantity updated successfully!');
       } else {
-        // Create new association
-        const { error: associationError } = await supabase
+        // Add new medicine-pharmacy relationship
+        const { error: insertError } = await supabase
           .from('medicine_pharmacies')
-          .insert([{
-            medicine_id: medicineId,
+          .insert({
             pharmacy_id: pharmacyId,
-            quantity
-          }]);
+            medicine_id: selectedMedicine.id,
+            quantity: Number(quantity)
+          });
 
-        if (associationError) throw associationError;
-        toast.success('Medicine added to inventory');
+        if (insertError) throw insertError;
+        toast.success('Medicine added to inventory successfully!');
       }
 
-      fetchMedicines();
-      setShowAddModal(false);
-      setIsAddingExisting(false);
+      // Reset form
+      setSelectedMedicine(null);
+      setQuantity('');
+      setShowAddExistingForm(false); // Hide the form after successful addition
+      fetchMedicines(); // Refresh the inventory list
     } catch (error: any) {
-      console.error('Error adding existing medicine:', error);
-      toast.error(error.message);
+      console.error('Error adding medicine:', error);
+      toast.error(error.message || 'Failed to add medicine');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleUpdateMedicine = async (medicine: Medicine) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate('/pharmacy/login');
-      }
-
-      const pharmacyId = localStorage.getItem('pharmacyId');
-      if (!pharmacyId) {
-        toast.error('No pharmacy ID found. Please login again.');
-        return;
-      }
-
       // Update medicine details
       const { error: medicineError } = await supabase
         .from('medicines')
@@ -776,12 +739,6 @@ export const PharmacyInventory: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this medicine?')) return;
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate('/pharmacy/login');
-      }
-
-      console.log('Current auth session:', session);
       console.log('Deleting medicine:', id);
 
       // Remove the association from medicine_pharmacies
@@ -789,7 +746,7 @@ export const PharmacyInventory: React.FC = () => {
         .from('medicine_pharmacies')
         .delete()
         .eq('medicine_id', id)
-        .eq('pharmacy_id', localStorage.getItem('pharmacyId'));
+        .eq('pharmacy_id', pharmacyId);
 
       console.log('Association delete response:', { error: associationError });
 
@@ -806,18 +763,10 @@ export const PharmacyInventory: React.FC = () => {
     }
   };
 
-  const filteredMedicines = medicines.filter(medicine => {
-    const matchesSearch = 
-      medicine.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      medicine.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || medicine.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
-
   const getStockStatus = (quantity: number) => {
-    if (quantity === 0) return { color: 'text-red-500', bg: 'bg-red-100', text: 'Out of Stock' };
-    if (quantity < 10) return { color: 'text-yellow-500', bg: 'bg-yellow-100', text: 'Low Stock' };
-    return { color: 'text-green-500', bg: 'bg-green-100', text: 'In Stock' };
+    if (quantity === 0) return { label: 'Out of Stock', color: 'bg-red-100 text-red-800' };
+    if (quantity <= 10) return { label: 'Low Stock', color: 'bg-yellow-100 text-yellow-800' };
+    return { label: 'In Stock', color: 'bg-green-100 text-green-800' };
   };
 
   return (
@@ -836,7 +785,7 @@ export const PharmacyInventory: React.FC = () => {
               setIsAddingExisting(false);
               setShowAddModal(true);
             }}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
             <Plus className="h-5 w-5 mr-2" />
             Add New Medicine
@@ -844,9 +793,9 @@ export const PharmacyInventory: React.FC = () => {
           <button
             onClick={() => {
               setIsAddingExisting(true);
-              setShowAddModal(true);
+              setShowAddExistingForm(true);
             }}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
             <Plus className="h-5 w-5 mr-2" />
             Add Existing Medicine
@@ -915,112 +864,107 @@ export const PharmacyInventory: React.FC = () => {
       </div>
 
       {/* Medicines Table */}
-      <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+      <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+        <table className="min-w-full divide-y divide-gray-300">
+          <thead className="bg-gray-50">
+            <tr>
+              <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
+                Medicine
+              </th>
+              <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                Category
+              </th>
+              <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                Quantity
+              </th>
+              <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                Price
+              </th>
+              <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                Status
+              </th>
+              <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200 bg-white">
+            {loading ? (
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Medicine
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Category
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Price
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Quantity
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
+                <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                  Loading...
+                </td>
               </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
-                    Loading...
-                  </td>
-                </tr>
-              ) : filteredMedicines.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
-                    No medicines found
-                  </td>
-                </tr>
-              ) : (
-                filteredMedicines.map((medicine) => {
-                  const status = getStockStatus(medicine.quantity);
-                  return (
-                    <tr key={medicine.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10">
-                            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                              <img
-                                src={medicine.imageUrl || 'https://via.placeholder.com/150?text=No+Image'}
-                                alt={medicine.name}
-                                onError={handleImageError}
-                                className="h-10 w-10 object-cover rounded-full"
-                              />
-                            </div>
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {medicine.name}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {medicine.description}
-                            </div>
+            ) : filteredMedicines.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                  No medicines found
+                </td>
+              </tr>
+            ) : (
+              filteredMedicines.map((medicine) => {
+                const status = getStockStatus(medicine.quantity);
+                return (
+                  <tr key={medicine.id}>
+                    <td className="whitespace-nowrap py-4 pl-4 pr-3 sm:pl-6">
+                      <div className="flex items-center">
+                        <div className="h-16 w-16 flex-shrink-0">
+                          <img
+                            className="h-16 w-16 rounded-lg object-cover shadow-sm"
+                            src={medicine.imageUrl || placeholderImage}
+                            alt={medicine.name}
+                            onError={handleImageError}
+                          />
+                        </div>
+                        <div className="ml-4">
+                          <div className="font-medium text-gray-900">{medicine.name}</div>
+                          <div className="text-gray-500 text-sm truncate max-w-xs">
+                            {medicine.description}
                           </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                          {medicine.category}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      GH₵{medicine.price.toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {medicine.quantity}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${status.bg} ${status.color}`}>
-                          {status.text}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => setEditingMedicine(medicine)}
-                            className="inline-flex items-center p-1.5 border border-gray-300 rounded-md text-blue-600 hover:text-blue-900 hover:bg-blue-50 transition-colors duration-200"
-                            title="Edit medicine"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteMedicine(medicine.id)}
-                            className="inline-flex items-center p-1.5 border border-gray-300 rounded-md text-red-600 hover:text-red-900 hover:bg-red-50 transition-colors duration-200"
-                            title="Delete medicine"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {medicine.category}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                      <div className="flex items-center space-x-1">
+                        <span className="font-medium">{medicine.quantity}</span>
+                        <span className="text-gray-400">{medicine.unit}</span>
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                      <div className="font-medium">₵{medicine.price.toFixed(2)}</div>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status.color}`}>
+                        {status.label}
+                      </span>
+                    </td>
+                    <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                      <div className="flex justify-end space-x-2">
+                        <button
+                          onClick={() => setEditingMedicine(medicine)}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          <Edit2 className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteMedicine(medicine.id)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <TrashIcon className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
 
       {showAddModal && (
@@ -1031,13 +975,7 @@ export const PharmacyInventory: React.FC = () => {
             </h2>
             
             {isAddingExisting ? (
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                const form = e.target as HTMLFormElement;
-                const medicineId = (form.elements.namedItem('medicineId') as HTMLSelectElement).value;
-                const quantity = parseInt((form.elements.namedItem('quantity') as HTMLInputElement).value);
-                handleAddExistingMedicine(medicineId, quantity);
-              }}>
+              <form onSubmit={handleAddExistingMedicine}>
                 <div className="space-y-4">
                   <div>
                     <label htmlFor="medicineId" className="block text-sm font-medium text-gray-700">
@@ -1047,6 +985,8 @@ export const PharmacyInventory: React.FC = () => {
                       id="medicineId"
                       name="medicineId"
                       required
+                      value={selectedMedicine?.id}
+                      onChange={(e) => setSelectedMedicine(existingMedicines.find(m => m.id === e.target.value))}
                       className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="">Select a medicine</option>
@@ -1067,6 +1007,8 @@ export const PharmacyInventory: React.FC = () => {
                       name="quantity"
                       min="0"
                       required
+                      value={quantity}
+                      onChange={(e) => setQuantity(e.target.value)}
                       className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -1093,6 +1035,70 @@ export const PharmacyInventory: React.FC = () => {
                 onClose={() => setShowAddModal(false)}
               />
             )}
+          </div>
+        </div>
+      )}
+      {showAddExistingForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h2 className="text-xl font-semibold mb-4">
+              Add Existing Medicine
+            </h2>
+            
+            <form onSubmit={handleAddExistingMedicine}>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="medicineId" className="block text-sm font-medium text-gray-700">
+                    Medicine
+                  </label>
+                  <select
+                    id="medicineId"
+                    name="medicineId"
+                    required
+                    value={selectedMedicine?.id}
+                    onChange={(e) => setSelectedMedicine(existingMedicines.find(m => m.id === e.target.value))}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select a medicine</option>
+                    {existingMedicines.map((medicine) => (
+                      <option key={medicine.id} value={medicine.id}>
+                        {medicine.name} - {medicine.category} (₵{medicine.price})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="quantity" className="block text-sm font-medium text-gray-700">
+                    Quantity
+                  </label>
+                  <input
+                    type="number"
+                    id="quantity"
+                    name="quantity"
+                    min="0"
+                    required
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAddExistingForm(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Add to Inventory
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

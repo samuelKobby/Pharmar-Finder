@@ -54,7 +54,13 @@ export const PharmacyManagement: React.FC = () => {
 
       if (error) throw error;
 
-      setPharmacies(pharmaciesData || []);
+      // Ensure all pharmacies have a status
+      const pharmaciesWithStatus = (pharmaciesData || []).map(pharmacy => ({
+        ...pharmacy,
+        status: pharmacy.status || 'pending'
+      }));
+
+      setPharmacies(pharmaciesWithStatus);
     } catch (error: any) {
       setError(error.message);
       console.error('Error fetching pharmacies:', error);
@@ -298,7 +304,8 @@ export const PharmacyManagement: React.FC = () => {
     }
   };
 
-  const formatStatus = (status: PharmacyStatus) => {
+  const formatStatus = (status: PharmacyStatus | null | undefined) => {
+    if (!status) return 'Unknown';
     return status.charAt(0).toUpperCase() + status.slice(1);
   };
 
@@ -755,4 +762,4 @@ export const PharmacyManagement: React.FC = () => {
   );
 };
 
-export default PharmacyManagement;
+export { PharmacyManagement as Categories };

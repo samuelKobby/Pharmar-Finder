@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FaTimes, FaUpload } from 'react-icons/fa';
+import placeholderImage from '../../assets/placeholder.svg';
 
 interface AddMedicineModalProps {
   isOpen: boolean;
@@ -14,10 +15,11 @@ export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
 }) => {
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
-    price: '',
     category: '',
-    quantity: '',
+    description: '',
+    price: 0,
+    quantity: 0,
+    unit: '',
   });
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
@@ -38,17 +40,18 @@ export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
     e.preventDefault();
     onSubmit({
       ...formData,
-      image: imagePreview || 'https://via.placeholder.com/150',
+      image: imagePreview || placeholderImage,
       id: Date.now().toString(),
       available: true,
     });
     onClose();
     setFormData({
       name: '',
-      description: '',
-      price: '',
       category: '',
-      quantity: '',
+      description: '',
+      price: 0,
+      quantity: 0,
+      unit: '',
     });
     setImage(null);
     setImagePreview('');

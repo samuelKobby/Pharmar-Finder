@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import placeholderImage from '../assets/placeholder.svg';
 
 interface Medicine {
   id: string;
@@ -91,9 +92,9 @@ export const Medicines: React.FC = () => {
             onClick={() => navigate(`/medicine/${medicine.id}`)}
           >
             <img
-              src={medicine.image || 'https://via.placeholder.com/400x300'}
+              className="h-48 w-full object-cover"
+              src={medicine.image || placeholderImage}
               alt={medicine.name}
-              className="w-full h-48 object-cover"
             />
             <div className="p-4">
               <h2 className="text-xl font-bold mb-2">{medicine.name}</h2>

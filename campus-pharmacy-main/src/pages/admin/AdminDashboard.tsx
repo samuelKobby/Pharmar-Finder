@@ -3,7 +3,7 @@ import { useNavigate, Routes, Route } from 'react-router-dom';
 import { Sidebar } from '../../components/admin/Sidebar';
 import { Header } from '../../components/admin/Header';
 import { DashboardStats } from '../../components/admin/DashboardStats';
-import { ActivityLog } from '../../components/admin/ActivityLog';
+import { DashboardCharts } from '../../components/admin/DashboardCharts';
 import { Analytics } from './Analytics';
 import { PharmacyManagement } from './Categories';
 import { Inventory } from './Inventory';
@@ -22,7 +22,7 @@ interface AdminUser {
 const DashboardHome: React.FC = () => (
   <div className="space-y-6">
     <DashboardStats />
-    <ActivityLog />
+    <DashboardCharts />
   </div>
 );
 

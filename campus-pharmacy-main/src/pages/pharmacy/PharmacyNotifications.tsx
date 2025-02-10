@@ -1,186 +1,151 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCircle, AlertCircle, Info, AlertTriangle, X } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { usePharmacyAuth } from '../../contexts/PharmacyAuthContext';
+import { supabase } from '../../lib/supabase';
+import toast from 'react-hot-toast';
+import { Bell } from 'lucide-react';
 
 interface Notification {
   id: string;
   title: string;
   message: string;
-  type: string;
-  is_read: boolean;
   created_at: string;
+  read: boolean;
 }
 
 export const PharmacyNotifications: React.FC = () => {
+  const { pharmacyId } = usePharmacyAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
   useEffect(() => {
-    checkAuth();
-    fetchNotifications();
-  }, []);
+    const fetchNotifications = async () => {
+      try {
+        setLoading(true);
+        if (!pharmacyId) return;
 
-  const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      navigate('/pharmacy/login');
-    }
-  };
+        const { data, error } = await supabase
+          .from('pharmacy_notifications')
+          .select('*')
+          .eq('pharmacy_id', pharmacyId)
+          .order('created_at', { ascending: false });
 
-  const fetchNotifications = async () => {
-    try {
-      const pharmacyId = localStorage.getItem('pharmacyId');
-      if (!pharmacyId) {
-        toast.error('No pharmacy ID found');
-        return;
+        if (error) throw error;
+
+        setNotifications(data || []);
+      } catch (error: any) {
+        console.error('Error fetching notifications:', error);
+        toast.error('Failed to load notifications');
+      } finally {
+        setLoading(false);
       }
+    };
 
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('pharmacy_id', pharmacyId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      setNotifications(data || []);
-    } catch (error: any) {
-      console.error('Error fetching notifications:', error);
-      toast.error('Failed to fetch notifications');
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchNotifications();
+  }, [pharmacyId]);
 
   const markAsRead = async (notificationId: string) => {
     try {
       const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('id', notificationId);
+        .from('pharmacy_notifications')
+        .update({ read: true })
+        .eq('id', notificationId)
+        .eq('pharmacy_id', pharmacyId);
 
       if (error) throw error;
 
-      setNotifications(notifications.map(notification =>
-        notification.id === notificationId
-          ? { ...notification, is_read: true }
-          : notification
+      setNotifications(notifications.map(n => 
+        n.id === notificationId ? { ...n, read: true } : n
       ));
-
-      toast.success('Notification marked as read');
     } catch (error: any) {
       console.error('Error marking notification as read:', error);
-      toast.error('Failed to mark notification as read');
+      toast.error('Failed to update notification');
     }
-  };
-
-  const deleteNotification = async (notificationId: string) => {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', notificationId);
-
-      if (error) throw error;
-
-      setNotifications(notifications.filter(n => n.id !== notificationId));
-      toast.success('Notification deleted');
-    } catch (error: any) {
-      console.error('Error deleting notification:', error);
-      toast.error('Failed to delete notification');
-    }
-  };
-
-  const getNotificationIcon = (type: string) => {
-    switch (type.toLowerCase()) {
-      case 'success':
-        return <CheckCircle className="h-6 w-6 text-green-500" />;
-      case 'error':
-        return <AlertCircle className="h-6 w-6 text-red-500" />;
-      case 'warning':
-        return <AlertTriangle className="h-6 w-6 text-yellow-500" />;
-      default:
-        return <Info className="h-6 w-6 text-blue-500" />;
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      <div className="p-4">
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+          <div className="space-y-3 mt-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-8 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Notifications</h1>
-        <Bell className="h-6 w-6 text-gray-500" />
+    <div className="px-4 sm:px-6 lg:px-8">
+      <div className="sm:flex sm:items-center">
+        <div className="sm:flex-auto">
+          <h1 className="text-xl font-semibold text-gray-900">Notifications</h1>
+          <p className="mt-2 text-sm text-gray-700">
+            Your pharmacy's notifications and updates.
+          </p>
+        </div>
       </div>
 
-      {notifications.length === 0 ? (
-        <div className="text-center py-12">
-          <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900">No notifications</h3>
-          <p className="text-gray-500">You're all caught up!</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {notifications.map((notification) => (
-            <div
-              key={notification.id}
-              className={`bg-white rounded-lg shadow-sm p-4 transition-all ${
-                notification.is_read ? 'opacity-75' : ''
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start space-x-3">
-                  {getNotificationIcon(notification.type)}
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900">{notification.title}</h3>
-                    <p className="text-gray-600 mt-1">{notification.message}</p>
-                    <p className="text-sm text-gray-400 mt-2">
-                      {formatDate(notification.created_at)}
-                    </p>
+      <div className="mt-8">
+        {notifications.length === 0 ? (
+          <div className="text-center py-12">
+            <Bell className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No notifications</h3>
+            <p className="mt-1 text-sm text-gray-500">You're all caught up!</p>
+          </div>
+        ) : (
+          <div className="flow-root">
+            <ul role="list" className="-mb-8">
+              {notifications.map((notification, index) => (
+                <li key={notification.id}>
+                  <div className="relative pb-8">
+                    {index !== notifications.length - 1 && (
+                      <span
+                        className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200"
+                        aria-hidden="true"
+                      />
+                    )}
+                    <div className="relative flex space-x-3">
+                      <div>
+                        <span className={`h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-white ${
+                          notification.read ? 'bg-gray-400' : 'bg-blue-500'
+                        }`}>
+                          <Bell className="h-5 w-5 text-white" aria-hidden="true" />
+                        </span>
+                      </div>
+                      <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
+                        <div>
+                          <p className="text-sm text-gray-500">
+                            <span className="font-medium text-gray-900">
+                              {notification.title}
+                            </span>
+                          </p>
+                          <p className="mt-2 text-sm text-gray-700">{notification.message}</p>
+                        </div>
+                        <div className="whitespace-nowrap text-right text-sm text-gray-500">
+                          <time dateTime={notification.created_at}>
+                            {new Date(notification.created_at).toLocaleDateString()}
+                          </time>
+                          {!notification.read && (
+                            <button
+                              onClick={() => markAsRead(notification.id)}
+                              className="ml-2 text-blue-600 hover:text-blue-800"
+                            >
+                              Mark as read
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  {!notification.is_read && (
-                    <button
-                      onClick={() => markAsRead(notification.id)}
-                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                    >
-                      Mark as read
-                    </button>
-                  )}
-                  <button
-                    onClick={() => deleteNotification(notification.id)}
-                    className="text-gray-400 hover:text-gray-500"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
-
-export default PharmacyNotifications;

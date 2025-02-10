@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaUserPlus, FaUserEdit, FaTrash, FaSearch, FaTimes } from 'react-icons/fa';
+import { FaUserPlus, FaUserEdit, FaTrash, FaSearch, FaTimes, FaStore } from 'react-icons/fa';
 import { supabase } from '../../lib/supabase';
 
 interface User {
@@ -9,6 +9,7 @@ interface User {
   role: string;
   status: 'Active' | 'Inactive';
   last_sign_in_at: string | null;
+  pharmacy_id?: string;
 }
 
 interface UserFormData {
@@ -16,10 +17,17 @@ interface UserFormData {
   email: string;
   role: string;
   password?: string;
+  pharmacy_id?: string;
+}
+
+interface Pharmacy {
+  id: string;
+  name: string;
 }
 
 export const Users: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
+  const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,9 +41,11 @@ export const Users: React.FC = () => {
     role: 'Staff',
     password: ''
   });
+  const [creatingPharmacyUsers, setCreatingPharmacyUsers] = useState(false);
 
   useEffect(() => {
     fetchUsers();
+    fetchPharmacies();
   }, []);
 
   const fetchUsers = async () => {
@@ -43,25 +53,109 @@ export const Users: React.FC = () => {
       setLoading(true);
       setError(null);
       
-      const { data, error } = await supabase
+      const { data: adminUsers, error: adminError } = await supabase
         .from('admin_users')
         .select('*')
         .order('full_name');
 
-      if (error) throw error;
+      if (adminError) throw adminError;
 
-      const formattedUsers = data.map(user => ({
-        ...user,
-        status: user.last_sign_in_at ? 'Active' : 'Inactive'
-      }));
+      const { data: pharmacyUsers, error: pharmacyError } = await supabase
+        .from('pharmacy_users')
+        .select('*, pharmacies!inner(name)')
+        .order('username');
 
-      setUsers(formattedUsers);
+      if (pharmacyError) throw pharmacyError;
+
+      const allUsers = [
+        ...adminUsers.map(user => ({
+          ...user,
+          status: user.last_sign_in_at ? 'Active' : 'Inactive'
+        })),
+        ...(pharmacyUsers || []).map(user => ({
+          id: user.id,
+          full_name: user.pharmacies.name,
+          username: user.username,
+          role: 'Pharmacy',
+          status: user.last_sign_in_at ? 'Active' : 'Inactive',
+          last_sign_in_at: user.last_sign_in_at,
+          pharmacy_id: user.pharmacy_id
+        }))
+      ];
+
+      setUsers(allUsers);
     } catch (error: any) {
       setError(error.message);
       console.error('Error fetching users:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchPharmacies = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('pharmacies')
+        .select('id, name')
+        .order('name');
+
+      if (error) throw error;
+      setPharmacies(data || []);
+    } catch (error: any) {
+      console.error('Error fetching pharmacies:', error);
+    }
+  };
+
+  const createPharmacyUsers = async () => {
+    try {
+      setCreatingPharmacyUsers(true);
+      setError(null);
+
+      for (const pharmacy of pharmacies) {
+        // Check if user already exists
+        const { data: existingUsers } = await supabase
+          .from('pharmacy_users')
+          .select('id')
+          .eq('pharmacy_id', pharmacy.id);
+
+        if (existingUsers && existingUsers.length > 0) continue;
+
+        const password = generateRandomPassword();
+        const username = pharmacy.name.toLowerCase().replace(/\s+/g, '_');
+        
+        // Create pharmacy user directly in the database
+        const { error: dbError } = await supabase
+          .from('pharmacy_users')
+          .insert([{
+            username: username,
+            password: password, // In a production environment, you should hash this password
+            pharmacy_id: pharmacy.id
+          }]);
+
+        if (dbError) {
+          console.error(`Error creating pharmacy user for ${pharmacy.name}:`, dbError);
+          continue;
+        }
+      }
+
+      await fetchUsers();
+      alert('Pharmacy users created successfully! Each pharmacy can now log in using their pharmacy name (lowercase with underscores) and the generated password.');
+    } catch (error: any) {
+      setError(error.message);
+      console.error('Error creating pharmacy users:', error);
+    } finally {
+      setCreatingPharmacyUsers(false);
+    }
+  };
+
+  const generateRandomPassword = () => {
+    const length = 12;
+    const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+    let password = '';
+    for (let i = 0; i < length; i++) {
+      password += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+    return password;
   };
 
   const handleAddUser = async (e: React.FormEvent) => {
@@ -110,24 +204,41 @@ export const Users: React.FC = () => {
 
     try {
       setError(null);
-      const updates = {
-        full_name: formData.full_name,
-        role: formData.role
-      };
+      
+      if (editingUser.role === 'Pharmacy') {
+        // Update pharmacy user
+        const updates = {
+          username: formData.full_name.toLowerCase().replace(/\s+/g, '_'),
+          ...(formData.password ? { password: formData.password } : {})
+        };
 
-      const { error } = await supabase
-        .from('admin_users')
-        .update(updates)
-        .eq('id', editingUser.id);
+        const { error } = await supabase
+          .from('pharmacy_users')
+          .update(updates)
+          .eq('id', editingUser.id);
 
-      if (error) throw error;
+        if (error) throw error;
+      } else {
+        // Update admin user
+        const updates = {
+          full_name: formData.full_name,
+          role: formData.role
+        };
 
-      // Update password if provided
-      if (formData.password) {
-        const { error: pwError } = await supabase.auth.updateUser({
-          password: formData.password
-        });
-        if (pwError) throw pwError;
+        const { error } = await supabase
+          .from('admin_users')
+          .update(updates)
+          .eq('id', editingUser.id);
+
+        if (error) throw error;
+
+        // Update password if provided
+        if (formData.password) {
+          const { error: pwError } = await supabase.auth.updateUser({
+            password: formData.password
+          });
+          if (pwError) throw pwError;
+        }
       }
 
       setEditingUser(null);
@@ -169,16 +280,6 @@ export const Users: React.FC = () => {
     }
   };
 
-  const generateRandomPassword = () => {
-    const length = 12;
-    const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
-    let password = '';
-    for (let i = 0; i < length; i++) {
-      password += charset.charAt(Math.floor(Math.random() * charset.length));
-    }
-    return password;
-  };
-
   const formatLastLogin = (timestamp: string | null) => {
     if (!timestamp) return 'Never';
     const date = new Date(timestamp);
@@ -202,69 +303,58 @@ export const Users: React.FC = () => {
   const roles = Array.from(new Set(users.map(u => u.role)));
 
   return (
-    <div className="space-y-6">
-      {error && (
-        <div className="bg-red-50 border-l-4 border-red-400 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <FaTimes className="h-5 w-5 text-red-400" />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
-          </div>
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">User Management</h1>
+        <div className="flex space-x-4 mb-6">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center transition-colors duration-200"
+          >
+            <FaUserPlus className="mr-2" /> Add Admin User
+          </button>
+          <button
+            onClick={createPharmacyUsers}
+            disabled={creatingPharmacyUsers}
+            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <FaStore className="mr-2" /> 
+            {creatingPharmacyUsers ? 'Creating Pharmacy Users...' : 'Create Pharmacy Users'}
+          </button>
         </div>
-      )}
-
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800">User Management</h2>
-          <p className="text-gray-600 mt-1">Manage system users and their roles</p>
-        </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-600"
-        >
-          <FaUserPlus />
-          <span>Add User</span>
-        </button>
       </div>
 
-      {/* Search and Filter */}
-      <div className="bg-white p-4 rounded-lg shadow">
-        <div className="flex items-center space-x-4">
-          <div className="flex-1 relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <FaSearch className="text-gray-400" />
-            </div>
-            <input
-              type="text"
-              placeholder="Search users..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-          <select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            className="block w-48 pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
-          >
-            <option value="">All Roles</option>
-            {roles.map(role => (
-              <option key={role} value={role}>{role}</option>
-            ))}
-          </select>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="block w-48 pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
-          >
-            <option value="">All Status</option>
-            <option value="Active">Active</option>
-            <option value="Inactive">Inactive</option>
-          </select>
+      {/* Filters */}
+      <div className="mb-6 flex gap-4">
+        <div className="flex-1 relative">
+          <FaSearch className="absolute left-3 top-3 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search users..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border rounded-lg"
+          />
         </div>
+        <select
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+          className="border rounded-lg px-4 py-2"
+        >
+          <option value="">All Roles</option>
+          <option value="Admin">Admin</option>
+          <option value="Staff">Staff</option>
+          <option value="Pharmacy">Pharmacy</option>
+        </select>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="border rounded-lg px-4 py-2"
+        >
+          <option value="">All Status</option>
+          <option value="Active">Active</option>
+          <option value="Inactive">Inactive</option>
+        </select>
       </div>
 
       {/* Users Table */}

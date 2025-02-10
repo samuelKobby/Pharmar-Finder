@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import { MainLayout } from './components/layouts/MainLayout';
 import { AuthLayout } from './components/layouts/AuthLayout';
 import { PharmacyLayout } from './components/layouts/PharmacyLayout';
+import { PharmacyAuthProvider, RequirePharmacyAuth } from './contexts/PharmacyAuthContext';
 import { Home } from './pages/Home';
 import { Medicines } from './pages/Medicines';
 import { Pharmacies } from './pages/Pharmacies';
@@ -31,45 +32,67 @@ import { PharmacySettings } from './pages/pharmacy/PharmacySettings';
 function App() {
   return (
     <Router>
-      <Toaster position="top-right" />
-      <Routes>
-        {/* Main Layout Routes */}
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<Home />} />
-          <Route path="medicines" element={<Medicines />} />
-          <Route path="medicine/:id" element={<MedicineDetails />} />
-          <Route path="pharmacies" element={<Pharmacies />} />
-          <Route path="category/:id" element={<CategoryView />} />
-          <Route path="about" element={<About />} />
-          <Route path="contact" element={<Contact />} />
-        </Route>
+      <PharmacyAuthProvider>
+        <Toaster position="top-right" />
+        <Routes>
+          {/* Main Layout Routes */}
+          <Route path="/" element={<MainLayout />}>
+            <Route index element={<Home />} />
+            <Route path="medicines" element={<Medicines />} />
+            <Route path="medicine/:id" element={<MedicineDetails />} />
+            <Route path="pharmacies" element={<Pharmacies />} />
+            <Route path="category/:id" element={<CategoryView />} />
+            <Route path="about" element={<About />} />
+            <Route path="contact" element={<Contact />} />
+          </Route>
 
-        {/* Auth Layout Routes */}
-        <Route element={<AuthLayout />}>
-          <Route path="/pharmacy/login" element={<PharmacyLogin />} />
-          <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/admin/signup" element={<AdminSignup />} />
-        </Route>
+          {/* Auth Layout Routes */}
+          <Route element={<AuthLayout />}>
+            <Route path="/pharmacy/login" element={<PharmacyLogin />} />
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/admin/signup" element={<AdminSignup />} />
+          </Route>
 
-        {/* Pharmacy Routes */}
-        <Route path="/pharmacy" element={<PharmacyLayout />}>
-          <Route path="dashboard" element={<PharmacyDashboard />} />
-          <Route path="inventory" element={<PharmacyInventory />} />
-          <Route path="hours" element={<PharmacyHours />} />
-          <Route path="notifications" element={<PharmacyNotifications />} />
-          <Route path="settings" element={<PharmacySettings />} />
-        </Route>
+          {/* Pharmacy Routes */}
+          <Route path="/pharmacy" element={<PharmacyLayout />}>
+            <Route path="dashboard" element={
+              <RequirePharmacyAuth>
+                <PharmacyDashboard />
+              </RequirePharmacyAuth>
+            } />
+            <Route path="inventory" element={
+              <RequirePharmacyAuth>
+                <PharmacyInventory />
+              </RequirePharmacyAuth>
+            } />
+            <Route path="hours" element={
+              <RequirePharmacyAuth>
+                <PharmacyHours />
+              </RequirePharmacyAuth>
+            } />
+            <Route path="notifications" element={
+              <RequirePharmacyAuth>
+                <PharmacyNotifications />
+              </RequirePharmacyAuth>
+            } />
+            <Route path="settings" element={
+              <RequirePharmacyAuth>
+                <PharmacySettings />
+              </RequirePharmacyAuth>
+            } />
+          </Route>
 
-        {/* Admin Routes */}
-        <Route
-          path="/admin/*"
-          element={
-            <ProtectedRoute>
-              <AdminDashboard />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
+          {/* Admin Routes */}
+          <Route
+            path="/admin/*"
+            element={
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </PharmacyAuthProvider>
     </Router>
   );
 }

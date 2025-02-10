@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { FaMapMarkerAlt, FaClock, FaPhone } from 'react-icons/fa';
 import { supabase } from '../lib/supabase';
-import { Pharmacy } from '../types/database';
+import placeholderImage from '../assets/placeholder.svg';
+import { MapPin, Clock, Phone, Package, Navigation } from 'lucide-react';
 
 interface Medicine {
   id: string;
@@ -10,27 +11,32 @@ interface Medicine {
   description: string;
   category: string;
   price: number;
-  unit: string;
   image: string;
 }
 
-interface DisplayPharmacy extends Pharmacy {
-  available: boolean;
-  image: string;
+interface Pharmacy {
+  id: string;
+  name: string;
+  address: string;
+  phone: string;
+  operating_hours: string;
+  image_url: string;
+  quantity: number;
+  distance?: string; // For future use with geolocation
 }
 
-export const MedicineDetails: React.FC = () => {
+export const MedicineDetails = () => {
   const { id } = useParams<{ id: string }>();
   const [medicine, setMedicine] = useState<Medicine | null>(null);
-  const [pharmacies, setPharmacies] = useState<DisplayPharmacy[]>([]);
-  const [selectedPharmacy, setSelectedPharmacy] = useState<string>('');
+  const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  const getDirectionsUrl = (address: string) => {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+  };
 
   useEffect(() => {
-    if (!id) return;
-
-    const fetchData = async () => {
+    const fetchMedicineAndPharmacies = async () => {
       try {
         setLoading(true);
         
@@ -42,121 +48,164 @@ export const MedicineDetails: React.FC = () => {
           .single();
 
         if (medicineError) throw medicineError;
-        if (!medicineData) throw new Error('Medicine not found');
-
         setMedicine(medicineData);
 
-        // Fetch pharmacies that have this medicine
+        // Get all pharmacies that have this medicine in stock
         const { data: pharmacyData, error: pharmacyError } = await supabase
           .from('medicine_pharmacies')
-          .select('pharmacy:pharmacies(*)')
-          .eq('medicine_id', id);
+          .select(`
+            quantity,
+            pharmacies (
+              id,
+              name,
+              location,
+              hours,
+              phone,
+              image
+            )
+          `)
+          .eq('medicine_id', id)
+          .gt('quantity', 0);
+
+        console.log('Medicine:', medicineData);
+        console.log('Raw pharmacy data:', pharmacyData);
 
         if (pharmacyError) throw pharmacyError;
 
-        // Convert pharmacy data to the correct type with proper type safety
-        const typedPharmacyData = ((pharmacyData || []) as unknown) as Array<{
-          pharmacy: Pharmacy | null;
-        }>;
+        // Format pharmacy data
+        const availablePharmacies = (pharmacyData || [])
+          .filter(item => item.pharmacies && item.quantity > 0)
+          .map(item => ({
+            id: item.pharmacies.id,
+            name: item.pharmacies.name,
+            address: item.pharmacies.location,
+            phone: item.pharmacies.phone,
+            operating_hours: item.pharmacies.hours,
+            image_url: item.pharmacies.image,
+            quantity: item.quantity
+          }))
+          .sort((a, b) => b.quantity - a.quantity);
 
-        const availablePharmacies = typedPharmacyData
-          .map(item => item.pharmacy)
-          .filter((pharmacy): pharmacy is Pharmacy => pharmacy !== null)
-          .map(pharmacy => ({
-            ...pharmacy,
-            available: pharmacy.available || false,
-            image: pharmacy.image_url || 'https://via.placeholder.com/400x300'
-          }));
-
+        console.log('Available pharmacies:', availablePharmacies);
         setPharmacies(availablePharmacies);
-        
-        if (availablePharmacies.length > 0) {
-          setSelectedPharmacy(availablePharmacies[0].id);
-        }
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        setError(err instanceof Error ? err.message : 'An error occurred');
+      } catch (error) {
+        console.error('Error fetching data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    if (id) {
+      fetchMedicineAndPharmacies();
+    }
   }, [id]);
 
-  const getDirectionsUrl = (pharmacy: DisplayPharmacy) => {
-    const coordinates = `${pharmacy.latitude},${pharmacy.longitude}`;
-    const query = encodeURIComponent(`${pharmacy.name} ${pharmacy.location}`);
-    return `https://www.google.com/maps/search/${query}/@${coordinates},17z`;
-  };
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
-  if (loading) return <div className="container mx-auto px-4 py-8 mt-16 text-center">Loading...</div>;
-  if (error) return <div className="container mx-auto px-4 py-8 mt-16 text-center text-red-500">{error}</div>;
-  if (!medicine) return <div className="container mx-auto px-4 py-8 mt-16 text-center">Medicine not found</div>;
+  if (!medicine) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900">Medicine not found</h2>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto px-4 py-8 mt-16">
+    <div className="container mx-auto px-4 py-8">
       {/* Medicine Details */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
         <div className="flex flex-col md:flex-row gap-8">
-          <div className="md:w-1/3">
+          <div className="w-full md:w-1/3">
             <img
-              src={medicine.image || 'https://via.placeholder.com/400x300'}
-              alt={medicine.name}
-              className="w-full rounded-lg object-cover shadow-md"
+              src={medicine?.image || placeholderImage}
+              alt={medicine?.name}
+              className="w-full h-auto rounded-lg shadow-sm"
             />
           </div>
-          <div className="md:w-2/3">
-            <h1 className="text-3xl font-bold mb-4">{medicine.name}</h1>
-            <p className="text-gray-600 mb-4 text-lg">{medicine.description}</p>
-            <div className="flex flex-wrap gap-4 mb-4">
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                Category: {medicine.category}
-              </span>
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                ${medicine.price.toFixed(2)} per {medicine.unit}
-              </span>
+          <div className="w-full md:w-2/3">
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">{medicine?.name}</h1>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div>
+                <p className="text-gray-600">Category</p>
+                <p className="text-lg font-medium">{medicine?.category}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Price</p>
+                <p className="text-lg font-medium">${medicine?.price}</p>
+              </div>
+            </div>
+            <div className="mb-6">
+              <p className="text-gray-600 mb-2">Description</p>
+              <p className="text-gray-800">{medicine?.description}</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Pharmacy List */}
+      {/* Available Pharmacies */}
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-bold mb-6">Available at {pharmacies.length} Pharmacies</h2>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {pharmacies.map((pharmacy) => (
-            <div 
-              key={pharmacy.id}
-              className="bg-gray-50 rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow"
-            >
-              <h3 className="font-bold text-xl mb-3">{pharmacy.name}</h3>
-              <div className="space-y-2 text-gray-600 mb-4">
-                <p className="flex items-center">
-                  <FaMapMarkerAlt className="w-5 h-5 mr-2" />
-                  {pharmacy.location}
-                </p>
-                <p className="flex items-center">
-                  <FaClock className="w-5 h-5 mr-2" />
-                  {pharmacy.hours}
-                </p>
-                <p className="flex items-center">
-                  <FaPhone className="w-5 h-5 mr-2" />
-                  {pharmacy.phone}
-                </p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Available at These Pharmacies</h2>
+        {pharmacies.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500 text-lg">No pharmacies currently have this medicine in stock</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {pharmacies.map((pharmacy) => (
+              <div key={pharmacy.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <img
+                      src={pharmacy.image_url || placeholderImage}
+                      alt={pharmacy.name}
+                      className="w-16 h-16 rounded-full object-cover"
+                    />
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">{pharmacy.name}</h3>
+                      <div className="flex items-center text-gray-600">
+                        <MapPin className="h-4 w-4 mr-1" />
+                        <p>{pharmacy.address}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-600">In Stock</p>
+                    <p className="text-lg font-semibold text-green-600">{pharmacy.quantity} units</p>
+                  </div>
+                </div>
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Operating Hours</p>
+                    <p className="text-gray-800">{pharmacy.operating_hours}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Contact</p>
+                    <p className="text-gray-800">{pharmacy.phone}</p>
+                  </div>
+                  <div className="flex items-center justify-end">
+                    <a
+                      href={getDirectionsUrl(pharmacy.address)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                    >
+                      <Navigation className="h-4 w-4 mr-2" />
+                      Get Directions
+                    </a>
+                  </div>
+                </div>
               </div>
-              <a
-                href={getDirectionsUrl(pharmacy)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
-              >
-                <FaMapMarkerAlt className="w-5 h-5 mr-2" />
-                Get Directions
-              </a>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

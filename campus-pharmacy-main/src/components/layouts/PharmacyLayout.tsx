@@ -1,26 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Store, Package, Clock, Settings, BarChart2, Bell, Users, LogOut } from 'lucide-react';
+import { Store, Package, Clock, Settings, BarChart2, Bell, LogOut } from 'lucide-react';
+import { usePharmacyAuth } from '../../contexts/PharmacyAuthContext';
 
 export const PharmacyLayout: React.FC = () => {
-  const [pharmacyName, setPharmacyName] = useState('');
+  const { pharmacyName, logout } = usePharmacyAuth();
   const navigate = useNavigate();
   const location = useLocation();
-
-  useEffect(() => {
-    const name = localStorage.getItem('pharmacyName');
-    if (!name) {
-      navigate('/pharmacy/login');
-      return;
-    }
-    setPharmacyName(name);
-  }, [navigate]);
-
-  const handleLogout = () => {
-    localStorage.removeItem('pharmacyId');
-    localStorage.removeItem('pharmacyName');
-    navigate('/pharmacy/login');
-  };
 
   const navigation = [
     { name: 'Dashboard', href: '/pharmacy/dashboard', icon: BarChart2 },
@@ -63,7 +49,7 @@ export const PharmacyLayout: React.FC = () => {
                 );
               })}
               <button
-                onClick={handleLogout}
+                onClick={logout}
                 className="w-full group flex items-center px-2 py-2 text-sm font-medium rounded-md text-blue-100 hover:bg-blue-700"
               >
                 <LogOut className="mr-3 flex-shrink-0 h-6 w-6 text-blue-300" />

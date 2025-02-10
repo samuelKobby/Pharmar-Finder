@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
+import placeholderImage from '../assets/placeholder.svg';
 
 interface Pharmacy {
   id: string;
@@ -78,9 +79,9 @@ export const Pharmacies: React.FC = () => {
             className="bg-white rounded-lg shadow-md overflow-hidden"
           >
             <img
-              src={pharmacy.image || 'https://via.placeholder.com/400x300'}
+              className="h-48 w-full object-cover"
+              src={pharmacy.image || placeholderImage}
               alt={pharmacy.name}
-              className="w-full h-48 object-cover"
             />
             <div className="p-4">
               <h2 className="text-xl font-bold mb-2">{pharmacy.name}</h2>
