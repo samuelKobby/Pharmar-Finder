@@ -25,7 +25,7 @@ export const PharmacyManagement: React.FC = () => {
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [filter, setFilter] = useState<'all' | PharmacyStatus>('all');
+  const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [newPharmacy, setNewPharmacy] = useState<NewPharmacy>({
@@ -54,13 +54,7 @@ export const PharmacyManagement: React.FC = () => {
 
       if (error) throw error;
 
-      // Ensure all pharmacies have a status
-      const pharmaciesWithStatus = (pharmaciesData || []).map(pharmacy => ({
-        ...pharmacy,
-        status: pharmacy.status || 'pending'
-      }));
-
-      setPharmacies(pharmaciesWithStatus);
+      setPharmacies(pharmaciesData || []);
     } catch (error: any) {
       setError(error.message);
       console.error('Error fetching pharmacies:', error);
@@ -281,34 +275,28 @@ export const PharmacyManagement: React.FC = () => {
     fetchPharmacies();
   }, []);
 
-  const filteredPharmacies = pharmacies
-    .filter(pharmacy => {
-      const matchesSearch = searchTerm === '' || 
-        pharmacy.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        pharmacy.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        pharmacy.phone.toLowerCase().includes(searchTerm.toLowerCase());
-
-      return matchesSearch && (filter === 'all' || pharmacy.status === filter);
+  const filterPharmacies = (pharmacies: Pharmacy[]) => {
+    return pharmacies.filter(pharmacy => {
+      const matchesSearch = pharmacy.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        pharmacy.location.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesSearch && (filter === 'all' || 
+        (filter === 'active' && pharmacy.available) || 
+        (filter === 'inactive' && !pharmacy.available));
     });
+  };
 
-  const getStatusBadgeClass = (status: PharmacyStatus) => {    
-    switch (status) {
-      case 'active':
-      case 'approved':
-        return 'bg-green-100 text-green-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'suspended':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  const getAvailabilityBadgeClass = (available: boolean | undefined) => {    
+    if (available) {
+      return 'bg-green-100 text-green-800';
     }
+    return 'bg-gray-100 text-gray-800';
   };
 
-  const formatStatus = (status: PharmacyStatus | null | undefined) => {
-    if (!status) return 'Unknown';
-    return status.charAt(0).toUpperCase() + status.slice(1);
+  const formatAvailability = (available: boolean | undefined) => {
+    return available ? 'Active' : 'Inactive';
   };
+
+  const filteredPharmacies = filterPharmacies(pharmacies);
 
   return (
     <div className="space-y-6 p-6">
@@ -340,12 +328,11 @@ export const PharmacyManagement: React.FC = () => {
           <select
             className="bg-white border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             value={filter}
-            onChange={(e) => setFilter(e.target.value as 'all' | PharmacyStatus)}
+            onChange={(e) => setFilter(e.target.value as 'all' | 'active' | 'inactive')}
           >
             <option value="all">All Pharmacies</option>
             <option value="active">Active Only</option>
-            <option value="pending">Pending Approval</option>
-            <option value="suspended">Suspended</option>
+            <option value="inactive">Inactive Only</option>
           </select>
           <button
             onClick={() => setShowAddModal(true)}
@@ -387,7 +374,7 @@ export const PharmacyManagement: React.FC = () => {
                     Contact
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
+                    Availability
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
@@ -421,8 +408,8 @@ export const PharmacyManagement: React.FC = () => {
                       <div className="text-sm text-gray-500">{pharmacy.open_hours}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(pharmacy.status)}`}>
-                        {formatStatus(pharmacy.status)}
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getAvailabilityBadgeClass(pharmacy.available)}`}>
+                        {formatAvailability(pharmacy.available)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -436,30 +423,6 @@ export const PharmacyManagement: React.FC = () => {
                       >
                         <Eye className="h-5 w-5" />
                       </button>
-                      {/* <button
-                        onClick={() => fetchPharmacyActivity(pharmacy.id)}
-                        className="text-blue-600 hover:text-blue-900 mx-2"
-                        title="View Activity"
-                      >
-                        <History className="h-5 w-5" />
-                      </button> */}
-                      {/* {pharmacy.status !== 'approved' ? (
-                        <button
-                          onClick={() => updatePharmacyStatus(pharmacy.id, 'approved')}
-                          className="text-green-600 hover:text-green-900 mx-2"
-                          title="Approve"
-                        >
-                          <CheckCircle className="h-5 w-5" />
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => updatePharmacyStatus(pharmacy.id, 'suspended')}
-                          className="text-red-600 hover:text-red-900 mx-2"
-                          title="Suspend"
-                        >
-                          <XCircle className="h-5 w-5" />
-                        </button>
-                      )} */}
                       <button
                         onClick={() => handleEditPharmacy(pharmacy)}
                         className="text-blue-600 hover:text-blue-900 mx-2"
@@ -688,9 +651,9 @@ export const PharmacyManagement: React.FC = () => {
                   </div>
                 )}
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Status</p>
-                  <span className={`mt-1 px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(selectedPharmacy.status)}`}>
-                    {formatStatus(selectedPharmacy.status)}
+                  <p className="text-sm font-medium text-gray-500">Availability</p>
+                  <span className={`mt-1 px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getAvailabilityBadgeClass(selectedPharmacy.available)}`}>
+                    {formatAvailability(selectedPharmacy.available)}
                   </span>
                 </div>
                 <div>
