@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { MainLayout } from './components/layouts/MainLayout';
+import { AuthLayout } from './components/layouts/AuthLayout';
+import { PharmacyLayout } from './components/layouts/PharmacyLayout';
 import { Home } from './pages/Home';
 import { Medicines } from './pages/Medicines';
 import { Pharmacies } from './pages/Pharmacies';
@@ -20,12 +22,18 @@ import { ProtectedRoute } from './components/admin/ProtectedRoute';
 import { About } from './pages/About';
 import { Contact } from './pages/Contact';
 import { PharmacyLogin } from './pages/PharmacyLogin';
+import { PharmacyDashboard } from './pages/pharmacy/PharmacyDashboard';
+import { PharmacyInventory } from './pages/pharmacy/PharmacyInventory';
+import { PharmacyHours } from './pages/pharmacy/PharmacyHours';
+import { PharmacyNotifications } from './pages/pharmacy/PharmacyNotifications';
+import { PharmacySettings } from './pages/pharmacy/PharmacySettings';
 
 function App() {
   return (
     <Router>
       <Toaster position="top-right" />
       <Routes>
+        {/* Main Layout Routes */}
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Home />} />
           <Route path="medicines" element={<Medicines />} />
@@ -34,12 +42,25 @@ function App() {
           <Route path="category/:id" element={<CategoryView />} />
           <Route path="about" element={<About />} />
           <Route path="contact" element={<Contact />} />
-          <Route path="pharmacy/login" element={<PharmacyLogin />} />
+        </Route>
+
+        {/* Auth Layout Routes */}
+        <Route element={<AuthLayout />}>
+          <Route path="/pharmacy/login" element={<PharmacyLogin />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/signup" element={<AdminSignup />} />
+        </Route>
+
+        {/* Pharmacy Routes */}
+        <Route path="/pharmacy" element={<PharmacyLayout />}>
+          <Route path="dashboard" element={<PharmacyDashboard />} />
+          <Route path="inventory" element={<PharmacyInventory />} />
+          <Route path="hours" element={<PharmacyHours />} />
+          <Route path="notifications" element={<PharmacyNotifications />} />
+          <Route path="settings" element={<PharmacySettings />} />
         </Route>
 
         {/* Admin Routes */}
-        <Route path="/admin/login" element={<AdminLogin />} />
-        <Route path="/admin/signup" element={<AdminSignup />} />
         <Route
           path="/admin/*"
           element={

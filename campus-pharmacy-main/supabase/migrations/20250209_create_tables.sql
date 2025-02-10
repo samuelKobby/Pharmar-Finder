@@ -30,11 +30,12 @@ CREATE TABLE IF NOT EXISTS pharmacies (
 
 -- Create medicines table
 CREATE TABLE IF NOT EXISTS medicines (
-    id BIGSERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     category VARCHAR(100) NOT NULL,
     price DECIMAL(10, 2) NOT NULL,
-    stock INTEGER NOT NULL DEFAULT 0,
+    quantity INTEGER NOT NULL DEFAULT 0,
+    description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
@@ -88,21 +89,39 @@ CREATE POLICY "Allow admin users to modify pharmacies"
 -- Create RLS policies for medicines
 ALTER TABLE medicines ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow authenticated users to read medicines"
+CREATE POLICY "Allow public to read medicines"
     ON medicines FOR SELECT
+    TO public
+    USING (true);
+
+CREATE POLICY "Allow authenticated users to modify medicines"
+    ON medicines FOR ALL
     TO authenticated
     USING (true);
 
-CREATE POLICY "Allow admin users to modify medicines"
-    ON medicines FOR ALL
+-- Create medicine_pharmacies table if it doesn't exist
+CREATE TABLE IF NOT EXISTS medicine_pharmacies (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    medicine_id UUID NOT NULL REFERENCES medicines(id) ON DELETE CASCADE,
+    pharmacy_id UUID NOT NULL REFERENCES pharmacies(id) ON DELETE CASCADE,
+    quantity INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    UNIQUE(medicine_id, pharmacy_id)
+);
+
+-- Drop the old medicine_pharmacy table
+DROP TABLE IF EXISTS medicine_pharmacy;
+
+-- Create RLS policies for medicine_pharmacies
+ALTER TABLE medicine_pharmacies ENABLE ROW LEVEL SECURITY;
+
+-- Allow all authenticated users to perform all operations (temporary for debugging)
+CREATE POLICY "Allow authenticated users full access"
+    ON medicine_pharmacies FOR ALL
     TO authenticated
-    USING (
-        EXISTS (
-            SELECT 1 FROM admin_users
-            WHERE admin_users.id = auth.uid()
-            AND admin_users.role IN ('Admin', 'Pharmacist')
-        )
-    );
+    USING (true)
+    WITH CHECK (true);
 
 -- Create RLS policies for notifications
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
@@ -183,5 +202,11 @@ CREATE TRIGGER update_admin_users_updated_at
 DROP TRIGGER IF EXISTS update_pharmacies_updated_at ON pharmacies;
 CREATE TRIGGER update_pharmacies_updated_at
     BEFORE UPDATE ON pharmacies
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_medicine_pharmacies_updated_at ON medicine_pharmacies;
+CREATE TRIGGER update_medicine_pharmacies_updated_at
+    BEFORE UPDATE ON medicine_pharmacies
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
