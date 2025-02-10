@@ -6,6 +6,8 @@ export const pharmacies = [
     location: 'Legon Hall',
     hours: '8:00 AM - 9:00 PM',
     phone: '020-555-0101',
+    email: 'legon.pharmacy@campus.edu',
+    description: 'Located in the heart of Legon Hall, we provide comprehensive pharmaceutical services to students and staff. Our experienced team ensures quick and reliable service with a wide range of medicines and healthcare products.',
     available: true,
     image: 'https://images.unsplash.com/photo-1576671081837-49000212a370?auto=format&fit=crop&q=80&w=500'
   },
@@ -15,6 +17,8 @@ export const pharmacies = [
     location: 'Akuafo Hall',
     hours: '9:00 AM - 8:00 PM',
     phone: '020-555-0102',
+    email: 'akuafo.pharmacy@campus.edu',
+    description: 'Your trusted pharmacy at Akuafo Hall. We specialize in providing essential medications and healthcare products with professional consultation services. Our priority is your health and well-being.',
     available: true,
     image: 'https://images.unsplash.com/photo-1586015555751-63bb77f4322a?auto=format&fit=crop&q=80&w=500'
   },
@@ -24,6 +28,8 @@ export const pharmacies = [
     location: 'Volta Hall',
     hours: '8:30 AM - 8:30 PM',
     phone: '020-555-0103',
+    email: 'volta.pharmacy@campus.edu',
+    description: 'Serving the Volta Hall community with dedication and care. Our pharmacy offers a wide selection of medicines, health supplies, and professional pharmaceutical services. We are committed to providing excellent healthcare support.',
     available: true,
     image: 'https://images.unsplash.com/photo-1576671081837-49000212a370?auto=format&fit=crop&q=80&w=500'
   }

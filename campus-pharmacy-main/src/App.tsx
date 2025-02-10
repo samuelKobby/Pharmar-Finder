@@ -10,6 +10,7 @@ import { Medicines } from './pages/Medicines';
 import { Pharmacies } from './pages/Pharmacies';
 import { CategoryView } from './pages/CategoryView';
 import { MedicineDetails } from './pages/MedicineDetails';
+import { PharmacyDetails } from './pages/PharmacyDetails';
 import { AdminLogin } from './pages/admin/AdminLogin';
 import { AdminSignup } from './pages/admin/AdminSignup';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
@@ -41,6 +42,7 @@ function App() {
             <Route path="medicines" element={<Medicines />} />
             <Route path="medicine/:id" element={<MedicineDetails />} />
             <Route path="pharmacies" element={<Pharmacies />} />
+            <Route path="pharmacies/:id" element={<PharmacyDetails />} />
             <Route path="category/:id" element={<CategoryView />} />
             <Route path="about" element={<About />} />
             <Route path="contact" element={<Contact />} />

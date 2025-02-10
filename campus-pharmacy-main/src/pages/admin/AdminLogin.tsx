@@ -151,7 +151,7 @@ export const AdminLogin: React.FC = () => {
 
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <input
+                {/* <input
                   id="remember-me"
                   name="remember-me"
                   type="checkbox"
@@ -160,7 +160,7 @@ export const AdminLogin: React.FC = () => {
                 />
                 <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-600">
                   Remember me
-                </label>
+                </label> */}
               </div>
 
               <div className="text-sm">
@@ -195,11 +195,11 @@ export const AdminLogin: React.FC = () => {
           </form>
 
           <div className="mt-6 text-center space-y-4">
-            <div className="text-sm">
+            {/* <div className="text-sm">
               <Link to="/admin/signup" className="text-blue-500 hover:text-blue-600 font-medium">
                 Create new admin account
               </Link>
-            </div>
+            </div> */}
             <Link to="/" className="text-sm text-gray-500 hover:text-gray-700 transition-colors duration-200">
               ← Back to Home
             </Link>
