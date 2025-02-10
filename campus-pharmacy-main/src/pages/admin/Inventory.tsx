@@ -266,7 +266,7 @@ export const Inventory: React.FC = () => {
                     <div className="text-sm text-gray-500">{medicine.category}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">${medicine.price.toFixed(2)}</div>
+                    <div className="text-sm text-gray-900">GH₵{medicine.price.toFixed(2)}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{medicine.stock}</div>
