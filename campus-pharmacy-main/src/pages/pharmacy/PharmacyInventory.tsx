@@ -463,7 +463,6 @@ export const PharmacyInventory: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
-  const [newMedicine, setNewMedicine] = useState<Partial<Medicine>>({});
   const [existingMedicines, setExistingMedicines] = useState<Medicine[]>([]);
   const [isAddingExisting, setIsAddingExisting] = useState(false);
   const navigate = useNavigate();
@@ -547,7 +546,7 @@ export const PharmacyInventory: React.FC = () => {
       })) || [];
 
       setExistingMedicines(medicinesWithImages);
-      setAllMedicines(medicinesWithImages);
+      setMedicines(medicinesWithImages);
       
       // Extract unique categories
       const uniqueCategories = [...new Set(medicinesWithImages.map(m => m.category))];
@@ -563,6 +562,7 @@ export const PharmacyInventory: React.FC = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         navigate('/pharmacy/login');
+        return;
       }
 
       console.log('Current auth session:', session);

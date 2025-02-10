@@ -17,7 +17,7 @@ export interface Pharmacy {
   updated_at: string;
 }
 
-export type PharmacyStatus = 'pending' | 'approved' | 'rejected';
+export type PharmacyStatus = 'active' | 'suspended' | 'pending';
 
 export interface ActivityLog {
   id: string;

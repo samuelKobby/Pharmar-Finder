@@ -39,6 +39,16 @@ interface DashboardStats {
   }>;
 }
 
+interface Medicine {
+  id: string;
+  name: string;
+  category: string;
+  quantity: number;
+  price: number;
+  description: string;
+  unit: string;
+}
+
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 export const PharmacyDashboard: React.FC = () => {
@@ -51,6 +61,7 @@ export const PharmacyDashboard: React.FC = () => {
     popularMedicines: [],
     categoryDistribution: []
   });
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -91,6 +102,8 @@ export const PharmacyDashboard: React.FC = () => {
         ...mp.medicines,
         quantity: mp.quantity
       })) || [];
+
+      setMedicines(medicines);
 
       // Calculate stats
       const totalMedicines = medicines.length;

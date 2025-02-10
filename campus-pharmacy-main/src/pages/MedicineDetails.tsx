@@ -61,7 +61,10 @@ export const MedicineDetails: React.FC = () => {
 
       if (pharmacyError) throw pharmacyError;
 
-      const availablePharmacies = pharmacyData
+      // Type assertion to ensure pharmacy data is an array of objects with pharmacy property
+      const pharmacyDataArray = pharmacyData as Array<{ pharmacy: Pharmacy | null }>;
+      
+      const availablePharmacies = pharmacyDataArray
         .map(item => item.pharmacy)
         .filter((pharmacy): pharmacy is Pharmacy => pharmacy !== null);
 

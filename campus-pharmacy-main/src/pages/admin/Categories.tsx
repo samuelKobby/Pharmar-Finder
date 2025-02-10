@@ -284,11 +284,9 @@ export const PharmacyManagement: React.FC = () => {
       return matchesSearch && pharmacy.status === filter;
     });
 
-  const getStatusBadgeClass = (status: PharmacyStatus | undefined) => {
-    if (!status) return 'bg-gray-100 text-gray-800';
-    
+  const getStatusBadgeClass = (status: PharmacyStatus) => {    
     switch (status) {
-      case 'approved':
+      case 'active':
         return 'bg-green-100 text-green-800';
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
@@ -299,8 +297,7 @@ export const PharmacyManagement: React.FC = () => {
     }
   };
 
-  const formatStatus = (status: PharmacyStatus | undefined) => {
-    if (!status) return 'Unknown';
+  const formatStatus = (status: PharmacyStatus) => {
     return status.charAt(0).toUpperCase() + status.slice(1);
   };
 
@@ -337,7 +334,7 @@ export const PharmacyManagement: React.FC = () => {
             onChange={(e) => setFilter(e.target.value as 'all' | PharmacyStatus)}
           >
             <option value="all">All Pharmacies</option>
-            <option value="approved">Active Only</option>
+            <option value="active">Active Only</option>
             <option value="pending">Pending Approval</option>
             <option value="suspended">Suspended</option>
           </select>
@@ -683,8 +680,8 @@ export const PharmacyManagement: React.FC = () => {
                 )}
                 <div>
                   <p className="text-sm font-medium text-gray-500">Status</p>
-                  <span className={`mt-1 px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(selectedPharmacy?.status)}`}>
-                    {formatStatus(selectedPharmacy?.status)}
+                  <span className={`mt-1 px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(selectedPharmacy.status)}`}>
+                    {formatStatus(selectedPharmacy.status)}
                   </span>
                 </div>
                 <div>
