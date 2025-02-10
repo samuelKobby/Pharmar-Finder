@@ -15,8 +15,9 @@ import {
   FolderOpen,
   DollarSign,
   Hash,
-  FileText,
-  Box
+  Box,
+  Image as ImageIcon,
+  Trash2 as TrashIcon
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -29,7 +30,251 @@ interface Medicine {
   quantity: number;
   description: string;
   unit: string;
+  image?: string;
+  imageUrl?: string;
 }
+
+interface NewMedicineFormProps {
+  onSubmit: (medicine: Omit<Medicine, 'id'> & { image?: File }) => void;
+  onClose: () => void;
+}
+
+const NewMedicineForm: React.FC<NewMedicineFormProps> = ({ onSubmit, onClose }) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    category: '',
+    price: '',
+    quantity: '',
+    unit: 'tablets',
+    image: null as File | null
+  });
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFormData(prev => ({ ...prev, image: file }));
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit({
+      name: formData.name,
+      category: formData.category,
+      price: parseFloat(formData.price),
+      quantity: parseInt(formData.quantity),
+      unit: formData.unit,
+      image: formData.image || undefined
+    });
+  };
+
+  const clearImage = () => {
+    setFormData(prev => ({ ...prev, image: null }));
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+      <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl transform transition-all">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-semibold text-gray-900">Add New Medicine</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-500 transition-colors duration-200"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Name Input */}
+          <div className="space-y-2">
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+              Medicine Name
+            </label>
+            <div className="relative rounded-md shadow-sm">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Package2 className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                id="name"
+                required
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="block w-full pl-10 pr-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200 placeholder-gray-400 sm:text-sm bg-white hover:border-gray-400"
+                placeholder="Enter medicine name"
+              />
+            </div>
+          </div>
+
+          {/* Category Input */}
+          <div className="space-y-2">
+            <label htmlFor="category" className="block text-sm font-medium text-gray-700">
+              Category
+            </label>
+            <div className="relative rounded-md shadow-sm">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FolderOpen className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                id="category"
+                required
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                className="block w-full pl-10 pr-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200 placeholder-gray-400 sm:text-sm bg-white hover:border-gray-400"
+                placeholder="Enter category"
+              />
+            </div>
+          </div>
+
+          {/* Price and Quantity Row */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Price Input */}
+            <div className="space-y-2">
+              <label htmlFor="price" className="block text-sm font-medium text-gray-700">
+                Price
+              </label>
+              <div className="relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <DollarSign className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="number"
+                  id="price"
+                  required
+                  value={formData.price}
+                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                  className="block w-full pl-10 pr-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200 placeholder-gray-400 sm:text-sm bg-white hover:border-gray-400"
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                />
+              </div>
+            </div>
+
+            {/* Quantity Input */}
+            <div className="space-y-2">
+              <label htmlFor="quantity" className="block text-sm font-medium text-gray-700">
+                Quantity
+              </label>
+              <div className="relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Hash className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="number"
+                  id="quantity"
+                  required
+                  value={formData.quantity}
+                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                  className="block w-full pl-10 pr-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200 placeholder-gray-400 sm:text-sm bg-white hover:border-gray-400"
+                  placeholder="0"
+                  min="0"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Unit Input */}
+          <div className="space-y-2">
+            <label htmlFor="unit" className="block text-sm font-medium text-gray-700">
+              Unit
+            </label>
+            <div className="relative rounded-md shadow-sm">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Box className="h-5 w-5 text-gray-400" />
+              </div>
+              <select
+                id="unit"
+                value={formData.unit}
+                onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                className="block w-full pl-10 pr-10 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200 placeholder-gray-400 sm:text-sm bg-white hover:border-gray-400 appearance-none cursor-pointer"
+              >
+                <option value="tablets">Tablets</option>
+                <option value="capsules">Capsules</option>
+                <option value="ml">Milliliters (ml)</option>
+                <option value="mg">Milligrams (mg)</option>
+                <option value="pieces">Pieces</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                <ChevronDown className="h-5 w-5 text-gray-400" />
+              </div>
+            </div>
+          </div>
+
+          {/* Image Upload */}
+          <div className="space-y-2">
+            <label htmlFor="image" className="block text-sm font-medium text-gray-700">
+              Medicine Image
+            </label>
+            <div className="mt-1 flex flex-col items-center space-y-4">
+              {imagePreview ? (
+                <div className="relative">
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    className="h-48 w-48 object-cover rounded-lg border-2 border-gray-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={clearImage}
+                    className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex flex-col items-center justify-center w-48 h-48 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 cursor-pointer transition-colors"
+                >
+                  <ImageIcon className="h-12 w-12 text-gray-400" />
+                  <span className="mt-2 text-sm text-gray-500">Click to upload image</span>
+                </div>
+              )}
+              <input
+                type="file"
+                id="image"
+                ref={fileInputRef}
+                onChange={handleImageChange}
+                accept="image/*"
+                className="hidden"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-6">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2.5 border border-transparent rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+            >
+              Add Medicine
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
 
 const EditMedicineModal: React.FC<{
   medicine: Medicine | null;
@@ -38,7 +283,7 @@ const EditMedicineModal: React.FC<{
 }> = ({ medicine, onClose, onSave }) => {
   const [editedMedicine, setEditedMedicine] = useState<Medicine | null>(medicine);
 
-  useEffect(() => {
+  React.useEffect(() => {
     setEditedMedicine(medicine);
   }, [medicine]);
 
@@ -151,26 +396,6 @@ const EditMedicineModal: React.FC<{
             </div>
           </div>
 
-          {/* Description Input */}
-          <div className="space-y-2">
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-              Description
-            </label>
-            <div className="relative rounded-md shadow-sm">
-              <div className="absolute top-3 left-3 flex items-start pointer-events-none">
-                <FileText className="h-5 w-5 text-gray-400" />
-              </div>
-              <textarea
-                id="description"
-                value={editedMedicine.description}
-                onChange={(e) => setEditedMedicine({ ...editedMedicine, description: e.target.value })}
-                rows={3}
-                className="block w-full pl-10 pr-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200 placeholder-gray-400 sm:text-sm bg-white hover:border-gray-400 resize-none"
-                placeholder="Enter medicine description"
-              />
-            </div>
-          </div>
-
           {/* Unit Input */}
           <div className="space-y-2">
             <label htmlFor="unit" className="block text-sm font-medium text-gray-700">
@@ -219,6 +444,17 @@ const EditMedicineModal: React.FC<{
   );
 };
 
+const getMedicineImageUrl = (medicineId: string) => {
+  const { data: imageUrl } = supabase.storage
+    .from('medicine-images')
+    .getPublicUrl(`${medicineId}.jpg`);
+  return imageUrl.publicUrl;
+};
+
+const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+  e.currentTarget.src = 'https://via.placeholder.com/150?text=No+Image';
+};
+
 export const PharmacyInventory: React.FC = () => {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(true);
@@ -232,7 +468,7 @@ export const PharmacyInventory: React.FC = () => {
   const [isAddingExisting, setIsAddingExisting] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
+  React.useEffect(() => {
     checkAuth();
     fetchMedicines();
     fetchAllMedicines();
@@ -240,80 +476,51 @@ export const PharmacyInventory: React.FC = () => {
 
   const checkAuth = async () => {
     const { data: { session }, error } = await supabase.auth.getSession();
-    console.log('Auth session:', session);
-    console.log('Auth error:', error);
-
-    if (error || !session) {
-      console.error('Authentication error:', error);
-      toast.error('Please login to access the inventory');
+    if (!session) {
       navigate('/pharmacy/login');
-      return;
     }
   };
 
   const fetchMedicines = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error('Please login to access the inventory');
-        navigate('/pharmacy/login');
-        return;
-      }
-
       const pharmacyId = localStorage.getItem('pharmacyId');
-      
       if (!pharmacyId) {
-        toast.error('No pharmacy ID found. Please login again.');
-        setLoading(false);
+        toast.error('No pharmacy ID found');
         return;
       }
 
-      // Get medicine-pharmacy relationships
       const { data: medicinePharmacyData, error: relationError } = await supabase
         .from('medicine_pharmacies')
         .select('*')
         .eq('pharmacy_id', pharmacyId);
 
-      console.log('Medicine-pharmacy relationships:', medicinePharmacyData);
-      console.log('Relation error:', relationError);
-
-      if (relationError) throw relationError;
-
-      if (!medicinePharmacyData?.length) {
-        setMedicines([]);
-        setLoading(false);
-        return;
+      if (relationError) {
+        throw relationError;
       }
 
-      // Get all medicine IDs from the relationships
-      const medicineIds = medicinePharmacyData.map(mp => mp.medicine_id);
+      const medicineIds = medicinePharmacyData.map(item => item.medicine_id);
 
-      // Get medicine details
       const { data: medicinesData, error: medicinesError } = await supabase
         .from('medicines')
         .select('*')
         .in('id', medicineIds);
 
-      console.log('Medicines data:', medicinesData);
-      console.log('Medicines error:', medicinesError);
+      if (medicinesError) {
+        throw medicinesError;
+      }
 
-      if (medicinesError) throw medicinesError;
-
-      // Combine the data
-      const combinedData = medicinesData.map(medicine => {
-        const relationship = medicinePharmacyData.find(mp => mp.medicine_id === medicine.id);
+      // Combine medicine data with quantities
+      const medicinesWithQuantity = medicinesData.map(medicine => {
+        const relationData = medicinePharmacyData.find(item => item.medicine_id === medicine.id);
         return {
           ...medicine,
-          quantity: relationship?.quantity || 0
+          quantity: relationData?.quantity || 0,
+          imageUrl: getMedicineImageUrl(medicine.id)
         };
       });
 
-      setMedicines(combinedData);
-
-      // Extract unique categories
-      const uniqueCategories = [...new Set(combinedData.map(med => med.category))];
-      setCategories(uniqueCategories);
-    } catch (error) {
+      setMedicines(medicinesWithQuantity);
+    } catch (error: any) {
       console.error('Error fetching medicines:', error);
       toast.error('Failed to fetch medicines');
     } finally {
@@ -329,26 +536,33 @@ export const PharmacyInventory: React.FC = () => {
         .select('*')
         .order('name');
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
-      setExistingMedicines(data || []);
+      // Add image URLs to all medicines
+      const medicinesWithImages = data?.map(medicine => ({
+        ...medicine,
+        imageUrl: getMedicineImageUrl(medicine.id)
+      })) || [];
+
+      setExistingMedicines(medicinesWithImages);
+      setAllMedicines(medicinesWithImages);
       
       // Extract unique categories
-      const uniqueCategories = [...new Set(data?.map(m => m.category) || [])];
+      const uniqueCategories = [...new Set(medicinesWithImages.map(m => m.category))];
       setCategories(uniqueCategories);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching all medicines:', error);
       toast.error('Failed to fetch available medicines');
     }
   };
 
-  const handleAddMedicine = async (medicine: Omit<Medicine, 'id'>) => {
+  const handleAddMedicine = async (medicine: Omit<Medicine, 'id'> & { image?: File }) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        toast.error('Please login to add medicines');
         navigate('/pharmacy/login');
-        return;
       }
 
       console.log('Current auth session:', session);
@@ -370,7 +584,6 @@ export const PharmacyInventory: React.FC = () => {
           name: medicine.name,
           category: medicine.category,
           price: medicine.price,
-          description: medicine.description,
           unit: medicine.unit || 'tablets'
         }])
         .select()
@@ -402,6 +615,21 @@ export const PharmacyInventory: React.FC = () => {
         throw associationError;
       }
 
+      if (medicine.image) {
+        const { data: imageData, error: imageError } = await supabase.storage
+          .from('medicine-images')
+          .upload(`${medicineData.id}.jpg`, medicine.image, {
+            upsert: true
+          });
+
+        console.log('Image upload response:', { data: imageData, error: imageError });
+
+        if (imageError) {
+          console.error('Error uploading image:', imageError);
+          throw imageError;
+        }
+      }
+
       toast.success('Medicine added successfully');
       fetchMedicines();
       setShowAddModal(false);
@@ -415,9 +643,7 @@ export const PharmacyInventory: React.FC = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        toast.error('Please login to add medicines');
         navigate('/pharmacy/login');
-        return;
       }
 
       console.log('Adding existing medicine:', { medicineId, quantity });
@@ -477,9 +703,7 @@ export const PharmacyInventory: React.FC = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        toast.error('Please login to update medicines');
         navigate('/pharmacy/login');
-        return;
       }
 
       const pharmacyId = localStorage.getItem('pharmacyId');
@@ -495,7 +719,6 @@ export const PharmacyInventory: React.FC = () => {
           name: medicine.name,
           category: medicine.category,
           price: medicine.price,
-          description: medicine.description,
           unit: medicine.unit
         })
         .eq('id', medicine.id);
@@ -532,9 +755,7 @@ export const PharmacyInventory: React.FC = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        toast.error('Please login to delete medicines');
         navigate('/pharmacy/login');
-        return;
       }
 
       console.log('Current auth session:', session);
@@ -659,6 +880,9 @@ export const PharmacyInventory: React.FC = () => {
               {categories.map(category => (
                 <option key={category} value={category}>{category}</option>
               ))}
+              <option value="tablets">Tablets</option>
+              <option value="syrups">Syrups</option>
+              <option value="topical">Topical</option>
             </select>
             <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
               <ChevronDown className="h-5 w-5 text-gray-400" aria-hidden="true" />
@@ -715,7 +939,12 @@ export const PharmacyInventory: React.FC = () => {
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10">
                             <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                              <Package className="h-6 w-6 text-blue-600" />
+                              <img
+                                src={medicine.imageUrl || 'https://via.placeholder.com/150?text=No+Image'}
+                                alt={medicine.name}
+                                onError={handleImageError}
+                                className="h-10 w-10 object-cover rounded-full"
+                              />
                             </div>
                           </div>
                           <div className="ml-4">
@@ -734,7 +963,7 @@ export const PharmacyInventory: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${medicine.price.toFixed(2)}
+                      GH₵{medicine.price.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {medicine.quantity}
@@ -836,125 +1065,10 @@ export const PharmacyInventory: React.FC = () => {
                 </div>
               </form>
             ) : (
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                handleAddMedicine(newMedicine as Omit<Medicine, 'id'>);
-              }}>
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                      Medicine Name *
-                    </label>
-                    <input
-                      type="text"
-                      id="name"
-                      required
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      value={newMedicine.name || ''}
-                      onChange={(e) => setNewMedicine({ ...newMedicine, name: e.target.value })}
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="category" className="block text-sm font-medium text-gray-700">
-                      Category *
-                    </label>
-                    <select
-                      id="category"
-                      required
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      value={newMedicine.category || ''}
-                      onChange={(e) => setNewMedicine({ ...newMedicine, category: e.target.value })}
-                    >
-                      <option value="">Select a category</option>
-                      <option value="Pain Relief">Pain Relief</option>
-                      <option value="Antibiotics">Antibiotics</option>
-                      <option value="Vitamins">Vitamins</option>
-                      <option value="First Aid">First Aid</option>
-                      <option value="Cold and Flu">Cold and Flu</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label htmlFor="price" className="block text-sm font-medium text-gray-700">
-                      Price (GHS) *
-                    </label>
-                    <input
-                      type="number"
-                      id="price"
-                      required
-                      min="0"
-                      step="0.01"
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      value={newMedicine.price || ''}
-                      onChange={(e) => setNewMedicine({ ...newMedicine, price: parseFloat(e.target.value) })}
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="quantity" className="block text-sm font-medium text-gray-700">
-                      Initial Quantity *
-                    </label>
-                    <input
-                      type="number"
-                      id="quantity"
-                      required
-                      min="0"
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      value={newMedicine.quantity || ''}
-                      onChange={(e) => setNewMedicine({ ...newMedicine, quantity: parseInt(e.target.value) })}
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="unit" className="block text-sm font-medium text-gray-700">
-                      Unit *
-                    </label>
-                    <select
-                      id="unit"
-                      required
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      value={newMedicine.unit || 'tablets'}
-                      onChange={(e) => setNewMedicine({ ...newMedicine, unit: e.target.value })}
-                    >
-                      <option value="tablets">Tablets</option>
-                      <option value="capsules">Capsules</option>
-                      <option value="ml">ML</option>
-                      <option value="mg">MG</option>
-                      <option value="pieces">Pieces</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-                      Description
-                    </label>
-                    <textarea
-                      id="description"
-                      rows={3}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      value={newMedicine.description || ''}
-                      onChange={(e) => setNewMedicine({ ...newMedicine, description: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-6 flex justify-end space-x-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddModal(false)}
-                    className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    Add Medicine
-                  </button>
-                </div>
-              </form>
+              <NewMedicineForm
+                onSubmit={handleAddMedicine}
+                onClose={() => setShowAddModal(false)}
+              />
             )}
           </div>
         </div>

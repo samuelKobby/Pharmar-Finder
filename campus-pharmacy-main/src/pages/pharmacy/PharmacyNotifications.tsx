@@ -1,28 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
-import { Bell, CheckCircle, AlertTriangle, Info } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase';import { useNavigate } from 'react-router-dom';
+import { Bell, CheckCircle, AlertCircle, Info, AlertTriangle, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface Notification {
   id: string;
   title: string;
   message: string;
-  type: 'info' | 'warning' | 'success';
-  read: boolean;
+  type: string;
+  is_read: boolean;
   created_at: string;
 }
 
 export const PharmacyNotifications: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
+    checkAuth();
     fetchNotifications();
   }, []);
+
+  const checkAuth = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      navigate('/pharmacy/login');
+    }
+  };
 
   const fetchNotifications = async () => {
     try {
       const pharmacyId = localStorage.getItem('pharmacyId');
+      if (!pharmacyId) {
+        toast.error('No pharmacy ID found');
+        return;
+      }
+
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
@@ -30,67 +44,61 @@ export const PharmacyNotifications: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+
       setNotifications(data || []);
     } catch (error: any) {
-      toast.error(error.message);
+      console.error('Error fetching notifications:', error);
+      toast.error('Failed to fetch notifications');
     } finally {
       setLoading(false);
     }
   };
 
-  const markAsRead = async (id: string) => {
+  const markAsRead = async (notificationId: string) => {
     try {
       const { error } = await supabase
         .from('notifications')
-        .update({ read: true })
-        .eq('id', id);
+        .update({ is_read: true })
+        .eq('id', notificationId);
 
       if (error) throw error;
-      fetchNotifications();
+
+      setNotifications(notifications.map(notification =>
+        notification.id === notificationId
+          ? { ...notification, is_read: true }
+          : notification
+      ));
+
+      toast.success('Notification marked as read');
     } catch (error: any) {
-      toast.error(error.message);
+      console.error('Error marking notification as read:', error);
+      toast.error('Failed to mark notification as read');
     }
   };
 
-  const markAllAsRead = async () => {
-    try {
-      const pharmacyId = localStorage.getItem('pharmacyId');
-      const { error } = await supabase
-        .from('notifications')
-        .update({ 
-          read: true,
-          updated_at: new Date().toISOString()
-        })
-        .eq('pharmacy_id', pharmacyId)
-        .eq('read', false);
-
-      if (error) throw error;
-      toast.success('All notifications marked as read');
-      fetchNotifications();
-    } catch (error: any) {
-      toast.error(error.message);
-    }
-  };
-
-  const deleteNotification = async (id: string) => {
+  const deleteNotification = async (notificationId: string) => {
     try {
       const { error } = await supabase
         .from('notifications')
         .delete()
-        .eq('id', id);
+        .eq('id', notificationId);
 
       if (error) throw error;
+
+      setNotifications(notifications.filter(n => n.id !== notificationId));
       toast.success('Notification deleted');
-      fetchNotifications();
     } catch (error: any) {
-      toast.error(error.message);
+      console.error('Error deleting notification:', error);
+      toast.error('Failed to delete notification');
     }
   };
 
-  const getNotificationIcon = (type: Notification['type']) => {
-    switch (type) {
+  const getNotificationIcon = (type: string) => {
+    switch (type.toLowerCase()) {
       case 'success':
         return <CheckCircle className="h-6 w-6 text-green-500" />;
+      case 'error':
+        return <AlertCircle className="h-6 w-6 text-red-500" />;
       case 'warning':
         return <AlertTriangle className="h-6 w-6 text-yellow-500" />;
       default:
@@ -101,88 +109,78 @@ export const PharmacyNotifications: React.FC = () => {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
+      year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit',
+      minute: '2-digit'
     });
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex justify-between items-center">
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-gray-900">Notifications</h1>
-        {notifications.some(n => !n.read) && (
-          <button
-            onClick={markAllAsRead}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-          >
-            <CheckCircle className="h-5 w-5 mr-2" />
-            Mark all as read
-          </button>
-        )}
+        <Bell className="h-6 w-6 text-gray-500" />
       </div>
 
-      <div className="mt-8">
-        {loading ? (
-          <div className="text-center">Loading...</div>
-        ) : notifications.length === 0 ? (
-          <div className="text-center text-gray-500">No notifications</div>
-        ) : (
-          <div className="flow-root">
-            <ul className="-mb-8">
-              {notifications.map((notification, index) => (
-                <li key={notification.id}>
-                  <div className="relative pb-8">
-                    {index !== notifications.length - 1 && (
-                      <span
-                        className="absolute top-5 left-5 -ml-px h-full w-0.5 bg-gray-200"
-                        aria-hidden="true"
-                      />
-                    )}
-                    <div className="relative flex items-start space-x-3">
-                      <div className="relative">
-                        {getNotificationIcon(notification.type)}
-                      </div>
-                      <div className="min-w-0 flex-1 bg-white p-4 rounded-lg shadow">
-                        <div className="flex justify-between items-center mb-1">
-                          <div>
-                            <h3 className="text-sm font-medium text-gray-900">
-                              {notification.title}
-                            </h3>
-                            <p className="mt-1 text-sm text-gray-500">
-                              {notification.message}
-                            </p>
-                          </div>
-                          <div className="ml-4 flex-shrink-0 flex flex-col items-end">
-                            <span className="text-sm text-gray-500">
-                              {formatDate(notification.created_at)}
-                            </span>
-                            {!notification.read && (
-                              <button
-                                onClick={() => markAsRead(notification.id)}
-                                className="mt-1 text-sm text-blue-600 hover:text-blue-800"
-                              >
-                                Mark as read
-                              </button>
-                            )}
-                            <button
-                              onClick={() => deleteNotification(notification.id)}
-                              className="mt-1 text-sm text-red-600 hover:text-red-800"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+      {notifications.length === 0 ? (
+        <div className="text-center py-12">
+          <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900">No notifications</h3>
+          <p className="text-gray-500">You're all caught up!</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {notifications.map((notification) => (
+            <div
+              key={notification.id}
+              className={`bg-white rounded-lg shadow-sm p-4 transition-all ${
+                notification.is_read ? 'opacity-75' : ''
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-start space-x-3">
+                  {getNotificationIcon(notification.type)}
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900">{notification.title}</h3>
+                    <p className="text-gray-600 mt-1">{notification.message}</p>
+                    <p className="text-sm text-gray-400 mt-2">
+                      {formatDate(notification.created_at)}
+                    </p>
                   </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  {!notification.is_read && (
+                    <button
+                      onClick={() => markAsRead(notification.id)}
+                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                    >
+                      Mark as read
+                    </button>
+                  )}
+                  <button
+                    onClick={() => deleteNotification(notification.id)}
+                    className="text-gray-400 hover:text-gray-500"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
+
+export default PharmacyNotifications;

@@ -13,6 +13,21 @@ CREATE POLICY "Allow public to view images"
 ON storage.objects FOR SELECT TO anon
 USING (bucket_id = 'pharmacy-images');
 
+-- Create storage bucket for medicine images if it doesn't exist
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('medicine-images', 'medicine-images', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Create policy to allow authenticated users to upload images
+CREATE POLICY "Allow authenticated users to upload medicine images"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (bucket_id = 'medicine-images');
+
+-- Create policy to allow public to view images
+CREATE POLICY "Allow public to view medicine images"
+ON storage.objects FOR SELECT TO public
+USING (bucket_id = 'medicine-images');
+
 -- Create pharmacies table
 CREATE TABLE IF NOT EXISTS pharmacies (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -42,14 +57,19 @@ CREATE TABLE IF NOT EXISTS medicines (
 
 -- Create notifications table
 CREATE TABLE IF NOT EXISTS notifications (
-    id BIGSERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    pharmacy_id UUID REFERENCES pharmacies(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     message TEXT NOT NULL,
-    type VARCHAR(50) NOT NULL CHECK (type IN ('info', 'success', 'warning', 'error')),
-    read BOOLEAN DEFAULT false,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+    type VARCHAR(50) NOT NULL,
+    is_read BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Create index on pharmacy_id and created_at for faster queries
+CREATE INDEX IF NOT EXISTS idx_notifications_pharmacy_created 
+ON notifications(pharmacy_id, created_at DESC);
 
 -- Create admin_users table
 CREATE TABLE IF NOT EXISTS admin_users (
