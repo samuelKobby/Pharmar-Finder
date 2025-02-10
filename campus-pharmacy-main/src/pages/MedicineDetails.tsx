@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { FaMapMarkerAlt, FaClock, FaPhone } from 'react-icons/fa';
 import { supabase } from '../lib/supabase';
+import { Pharmacy } from '../types/database';
 
 interface Medicine {
   id: string;
@@ -13,14 +14,7 @@ interface Medicine {
   image: string;
 }
 
-interface Pharmacy {
-  id: string;
-  name: string;
-  location: string;
-  hours: string;
-  phone: string;
-  latitude: number;
-  longitude: number;
+interface DisplayPharmacy extends Pharmacy {
   available: boolean;
   image: string;
 }
@@ -28,59 +22,69 @@ interface Pharmacy {
 export const MedicineDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [medicine, setMedicine] = useState<Medicine | null>(null);
-  const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
+  const [pharmacies, setPharmacies] = useState<DisplayPharmacy[]>([]);
+  const [selectedPharmacy, setSelectedPharmacy] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPharmacy, setSelectedPharmacy] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchMedicineAndPharmacies();
+    if (!id) return;
+
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch medicine details
+        const { data: medicineData, error: medicineError } = await supabase
+          .from('medicines')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (medicineError) throw medicineError;
+        if (!medicineData) throw new Error('Medicine not found');
+
+        setMedicine(medicineData);
+
+        // Fetch pharmacies that have this medicine
+        const { data: pharmacyData, error: pharmacyError } = await supabase
+          .from('medicine_pharmacies')
+          .select('pharmacy:pharmacies(*)')
+          .eq('medicine_id', id);
+
+        if (pharmacyError) throw pharmacyError;
+
+        // Convert pharmacy data to the correct type with proper type safety
+        const typedPharmacyData = ((pharmacyData || []) as unknown) as Array<{
+          pharmacy: Pharmacy | null;
+        }>;
+
+        const availablePharmacies = typedPharmacyData
+          .map(item => item.pharmacy)
+          .filter((pharmacy): pharmacy is Pharmacy => pharmacy !== null)
+          .map(pharmacy => ({
+            ...pharmacy,
+            available: pharmacy.available || false,
+            image: pharmacy.image_url || 'https://via.placeholder.com/400x300'
+          }));
+
+        setPharmacies(availablePharmacies);
+        
+        if (availablePharmacies.length > 0) {
+          setSelectedPharmacy(availablePharmacies[0].id);
+        }
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, [id]);
 
-  const fetchMedicineAndPharmacies = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch medicine details
-      const { data: medicineData, error: medicineError } = await supabase
-        .from('medicines')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (medicineError) throw medicineError;
-      if (!medicineData) throw new Error('Medicine not found');
-
-      setMedicine(medicineData);
-
-      // Fetch pharmacies that have this medicine
-      const { data: pharmacyData, error: pharmacyError } = await supabase
-        .from('medicine_pharmacies')
-        .select('pharmacy:pharmacies(*)')
-        .eq('medicine_id', id);
-
-      if (pharmacyError) throw pharmacyError;
-
-      // Type assertion to ensure pharmacy data is an array of objects with pharmacy property
-      const pharmacyDataArray = pharmacyData as Array<{ pharmacy: Pharmacy | null }>;
-      
-      const availablePharmacies = pharmacyDataArray
-        .map(item => item.pharmacy)
-        .filter((pharmacy): pharmacy is Pharmacy => pharmacy !== null);
-
-      setPharmacies(availablePharmacies);
-      if (availablePharmacies.length > 0) {
-        setSelectedPharmacy(availablePharmacies[0].id);
-      }
-    } catch (err) {
-      console.error('Error fetching data:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getDirectionsUrl = (pharmacy: Pharmacy) => {
+  const getDirectionsUrl = (pharmacy: DisplayPharmacy) => {
     const coordinates = `${pharmacy.latitude},${pharmacy.longitude}`;
     const query = encodeURIComponent(`${pharmacy.name} ${pharmacy.location}`);
     return `https://www.google.com/maps/search/${query}/@${coordinates},17z`;

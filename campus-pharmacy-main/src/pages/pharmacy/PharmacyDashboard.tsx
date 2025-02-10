@@ -84,35 +84,41 @@ export const PharmacyDashboard: React.FC = () => {
       }
 
       // Get all medicine-pharmacy relationships for this pharmacy
-      const { data: medicinePharmacyData, error: relationError } = await supabase
+      const { data, error: relationError } = await supabase
         .from('medicine_pharmacies')
         .select(`
+          id,
+          name,
+          category,
           quantity,
-          medicines (
-            id,
-            name,
-            category
-          )
+          price,
+          description,
+          unit
         `)
         .eq('pharmacy_id', pharmacyId);
 
       if (relationError) throw relationError;
 
-      const medicines = medicinePharmacyData?.map(mp => ({
-        ...mp.medicines,
-        quantity: mp.quantity
+      const medicineData = data?.map(mp => ({
+        id: mp.id,
+        name: mp.name,
+        category: mp.category,
+        quantity: mp.quantity,
+        price: mp.price,
+        description: mp.description,
+        unit: mp.unit
       })) || [];
 
-      setMedicines(medicines);
+      setMedicines(medicineData);
 
       // Calculate stats
-      const totalMedicines = medicines.length;
-      const inStock = medicines.filter(m => m.quantity > 10).length;
-      const lowStock = medicines.filter(m => m.quantity > 0 && m.quantity <= 10).length;
-      const outOfStock = medicines.filter(m => m.quantity === 0).length;
+      const totalMedicines = medicineData.length;
+      const inStock = medicineData.filter(m => m.quantity > 10).length;
+      const lowStock = medicineData.filter(m => m.quantity > 0 && m.quantity <= 10).length;
+      const outOfStock = medicineData.filter(m => m.quantity === 0).length;
 
       // Get popular medicines (sorted by quantity)
-      const popularMedicines = [...medicines]
+      const popularMedicines = [...medicineData]
         .sort((a, b) => b.quantity - a.quantity)
         .slice(0, 5)
         .map(m => ({
@@ -122,7 +128,7 @@ export const PharmacyDashboard: React.FC = () => {
         }));
 
       // Calculate category distribution
-      const categoryMap = medicines.reduce((acc, medicine) => {
+      const categoryMap = medicineData.reduce((acc, medicine) => {
         acc[medicine.category] = (acc[medicine.category] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);

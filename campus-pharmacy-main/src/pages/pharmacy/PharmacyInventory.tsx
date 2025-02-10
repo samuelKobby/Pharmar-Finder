@@ -30,12 +30,12 @@ interface Medicine {
   quantity: number;
   description: string;
   unit: string;
-  image?: string;
+  image?: string | File;
   imageUrl?: string;
 }
 
 interface NewMedicineFormProps {
-  onSubmit: (medicine: Omit<Medicine, 'id'> & { image?: File }) => void;
+  onSubmit: (medicine: Omit<Medicine, 'id'>) => void;
   onClose: () => void;
 }
 
@@ -46,6 +46,7 @@ const NewMedicineForm: React.FC<NewMedicineFormProps> = ({ onSubmit, onClose }) 
     price: '',
     quantity: '',
     unit: 'tablets',
+    description: '',
     image: null as File | null
   });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -71,6 +72,7 @@ const NewMedicineForm: React.FC<NewMedicineFormProps> = ({ onSubmit, onClose }) 
       price: parseFloat(formData.price),
       quantity: parseInt(formData.quantity),
       unit: formData.unit,
+      description: formData.description || '',
       image: formData.image || undefined
     });
   };
@@ -211,6 +213,25 @@ const NewMedicineForm: React.FC<NewMedicineFormProps> = ({ onSubmit, onClose }) 
               <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
                 <ChevronDown className="h-5 w-5 text-gray-400" />
               </div>
+            </div>
+          </div>
+
+          {/* Description Input */}
+          <div className="space-y-2">
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+              Description
+            </label>
+            <div className="relative rounded-md shadow-sm">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <AlertCircle className="h-5 w-5 text-gray-400" />
+              </div>
+              <textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="block w-full pl-10 pr-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200 placeholder-gray-400 sm:text-sm bg-white hover:border-gray-400"
+                placeholder="Enter description"
+              />
             </div>
           </div>
 
@@ -557,7 +578,7 @@ export const PharmacyInventory: React.FC = () => {
     }
   };
 
-  const handleAddMedicine = async (medicine: Omit<Medicine, 'id'> & { image?: File }) => {
+  const handleAddMedicine = async (medicine: Omit<Medicine, 'id'>) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -584,7 +605,8 @@ export const PharmacyInventory: React.FC = () => {
           name: medicine.name,
           category: medicine.category,
           price: medicine.price,
-          unit: medicine.unit || 'tablets'
+          unit: medicine.unit || 'tablets',
+          description: medicine.description || ''
         }])
         .select()
         .single();
@@ -719,7 +741,8 @@ export const PharmacyInventory: React.FC = () => {
           name: medicine.name,
           category: medicine.category,
           price: medicine.price,
-          unit: medicine.unit
+          unit: medicine.unit,
+          description: medicine.description || ''
         })
         .eq('id', medicine.id);
 

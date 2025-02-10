@@ -90,7 +90,7 @@ export const PharmacyManagement: React.FC = () => {
         .from('pharmacies')
         .update({ 
           status,
-          available: status === 'approved'
+          available: status === 'active'
         })
         .eq('id', pharmacyId);
 
@@ -184,7 +184,8 @@ export const PharmacyManagement: React.FC = () => {
         available: newPharmacy.available,
         image: newPharmacy.image || null,
         latitude: newPharmacy.latitude,
-        longitude: newPharmacy.longitude
+        longitude: newPharmacy.longitude,
+        status: 'pending' as PharmacyStatus,
       };
 
       console.log('Attempting to insert pharmacy with data:', JSON.stringify(pharmacyData, null, 2));
@@ -280,13 +281,13 @@ export const PharmacyManagement: React.FC = () => {
         pharmacy.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
         pharmacy.phone.toLowerCase().includes(searchTerm.toLowerCase());
 
-      if (filter === 'all') return matchesSearch;
-      return matchesSearch && pharmacy.status === filter;
+      return matchesSearch && (filter === 'all' || pharmacy.status === filter);
     });
 
   const getStatusBadgeClass = (status: PharmacyStatus) => {    
     switch (status) {
       case 'active':
+      case 'approved':
         return 'bg-green-100 text-green-800';
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';

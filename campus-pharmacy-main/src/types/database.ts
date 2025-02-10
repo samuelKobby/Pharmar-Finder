@@ -6,18 +6,17 @@ export interface Pharmacy {
   email: string | null;
   description: string | null;
   image_url: string | null;
-  operating_hours: {
-    hours: string;
-  };
-  coordinates: {
-    latitude: number | null;
-    longitude: number | null;
-  };
+  open_hours: string;
+  latitude: number;
+  longitude: number;
+  status: PharmacyStatus;
+  hours: string;
+  available?: boolean;
   created_at: string;
   updated_at: string;
 }
 
-export type PharmacyStatus = 'active' | 'suspended' | 'pending';
+export type PharmacyStatus = 'active' | 'approved' | 'suspended' | 'pending';
 
 export interface ActivityLog {
   id: string;
