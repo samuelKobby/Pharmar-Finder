@@ -89,30 +89,29 @@ export const PharmacyManagement: React.FC = () => {
     }
   };
 
-  const updatePharmacyStatus = async (pharmacyId: string, status: PharmacyStatus) => {
+  const updatePharmacyStatus = async (pharmacyId: string) => {
     try {
       setError(null);
       const { error } = await supabase
         .from('pharmacies')
         .update({ 
-          status,
-          available: status === 'active'
+          available: true
         })
         .eq('id', pharmacyId);
 
       if (error) throw error;
 
       await supabase.from('activity_logs').insert({
-        action_type: `pharmacy_${status}`,
+        action_type: 'pharmacy_updated',
         entity_type: 'pharmacy',
         entity_id: pharmacyId,
-        details: { status, timestamp: new Date().toISOString() }
+        details: { timestamp: new Date().toISOString() }
       });
 
       await fetchPharmacies();
     } catch (error: any) {
       setError(error.message);
-      console.error('Error updating pharmacy status:', error);
+      console.error('Error updating pharmacy:', error);
     }
   };
 
@@ -171,6 +170,7 @@ export const PharmacyManagement: React.FC = () => {
     e.preventDefault();
     try {
       setError(null);
+      setLoading(true);
 
       // Basic validation
       if (!newPharmacy.name || !newPharmacy.phone || !newPharmacy.hours) {
@@ -191,7 +191,6 @@ export const PharmacyManagement: React.FC = () => {
         image: newPharmacy.image || null,
         latitude: newPharmacy.latitude,
         longitude: newPharmacy.longitude,
-        status: 'pending' as PharmacyStatus,
       };
 
       console.log('Attempting to insert pharmacy with data:', JSON.stringify(pharmacyData, null, 2));
@@ -238,6 +237,8 @@ export const PharmacyManagement: React.FC = () => {
     } catch (error: any) {
       setError(error.message);
       console.error('Error adding/updating pharmacy:', error);
+    } finally {
+      setLoading(false);
     }
   };
 

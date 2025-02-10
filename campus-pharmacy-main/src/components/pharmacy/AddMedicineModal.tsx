@@ -8,18 +8,29 @@ interface AddMedicineModalProps {
   onSubmit: (medicine: any) => void;
 }
 
+interface FormData {
+  name: string;
+  category: string;
+  price: number;
+  quantity: number;
+  unit: string;
+  description: string;
+  image: File | null;
+}
+
 export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
 }) => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     category: '',
-    description: '',
     price: 0,
     quantity: 0,
-    unit: '',
+    unit: 'tablets',
+    description: '',
+    image: null,
   });
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
@@ -36,6 +47,17 @@ export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
     }
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    if (name === 'price') {
+      setFormData(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
+    } else if (name === 'quantity') {
+      setFormData(prev => ({ ...prev, [name]: parseInt(value) || 0 }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
@@ -48,10 +70,11 @@ export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
     setFormData({
       name: '',
       category: '',
-      description: '',
       price: 0,
       quantity: 0,
-      unit: '',
+      unit: 'tablets',
+      description: '',
+      image: null,
     });
     setImage(null);
     setImagePreview('');
@@ -82,7 +105,8 @@ export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                 type="text"
                 required
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={handleChange}
+                name="name"
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -94,7 +118,8 @@ export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
               <select
                 required
                 value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                onChange={handleChange}
+                name="category"
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select Category</option>
@@ -115,8 +140,10 @@ export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                 min="0"
                 step="0.01"
                 value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                onChange={handleChange}
+                name="price"
+                className="block w-full pl-10 pr-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="0.00"
               />
             </div>
 
@@ -129,8 +156,10 @@ export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                 required
                 min="0"
                 value={formData.quantity}
-                onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                onChange={handleChange}
+                name="quantity"
+                className="block w-full pl-10 pr-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="0"
               />
             </div>
           </div>
@@ -142,7 +171,8 @@ export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
             <textarea
               required
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={handleChange}
+              name="description"
               rows={3}
               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
             />

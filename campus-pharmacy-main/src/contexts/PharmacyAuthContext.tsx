@@ -40,13 +40,6 @@ export const PharmacyAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   useEffect(() => {
-    const isAuthed = checkAuth();
-    if (!isAuthed) {
-      navigate('/pharmacy/login', { replace: true });
-    }
-  }, [navigate]);
-
-  useEffect(() => {
     window.addEventListener('storage', checkAuth);
     window.addEventListener('pharmacyAuthChange', checkAuth);
     
@@ -63,7 +56,7 @@ export const PharmacyAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setPharmacyId(null);
     setPharmacyName(null);
     setIsAuthenticated(false);
-    navigate('/pharmacy/login', { replace: true });
+    navigate('/', { replace: true });
   };
 
   return (
@@ -86,14 +79,10 @@ export const RequirePharmacyAuth: React.FC<{ children: React.ReactNode }> = ({ c
   const navigate = useNavigate();
 
   useEffect(() => {
-    const storedPharmacyId = localStorage.getItem('pharmacyId');
-    const storedPharmacyName = localStorage.getItem('pharmacyName');
-    const userRole = localStorage.getItem('userRole');
-
-    if (!(storedPharmacyId && storedPharmacyName && userRole === 'pharmacy')) {
+    if (!isAuthenticated) {
       navigate('/pharmacy/login', { replace: true });
     }
-  }, [navigate]);
+  }, [isAuthenticated, navigate]);
 
   return isAuthenticated ? <>{children}</> : null;
 };

@@ -7,10 +7,9 @@ export interface Pharmacy {
   description: string | null;
   image_url: string | null;
   open_hours: string;
+  hours: string;
   latitude: number;
   longitude: number;
-  status: PharmacyStatus;
-  hours: string;
   available?: boolean;
   created_at: string;
   updated_at: string;

@@ -4,17 +4,42 @@ import { FaMapMarkerAlt, FaClock, FaPhone } from 'react-icons/fa';
 import { supabase } from '../lib/supabase';
 import placeholderImage from '../assets/placeholder.svg';
 import { MapPin, Clock, Phone, Package, Navigation } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 interface Medicine {
   id: string;
   name: string;
   description: string;
   category: string;
+  unit: string;
   price: number;
-  image: string;
+  image_url?: string;
 }
 
 interface Pharmacy {
+  id: string;
+  name: string;
+  location: string;
+  phone: string;
+  hours: string;
+  image: string;
+}
+
+// Raw shape of data from Supabase join query
+type SupabaseJoinRow = {
+  quantity: any;
+  price: any;
+  pharmacies: {
+    id: any;
+    name: any;
+    location: any;
+    hours: any;
+    phone: any;
+    image: any;
+  }[];
+}
+
+interface PharmacyDetails {
   id: string;
   name: string;
   address: string;
@@ -22,13 +47,13 @@ interface Pharmacy {
   operating_hours: string;
   image_url: string;
   quantity: number;
-  distance?: string; // For future use with geolocation
+  price: number;
 }
 
 export const MedicineDetails = () => {
   const { id } = useParams<{ id: string }>();
   const [medicine, setMedicine] = useState<Medicine | null>(null);
-  const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
+  const [pharmacies, setPharmacies] = useState<PharmacyDetails[]>([]);
   const [loading, setLoading] = useState(true);
 
   const getDirectionsUrl = (address: string) => {
@@ -36,11 +61,11 @@ export const MedicineDetails = () => {
   };
 
   useEffect(() => {
-    const fetchMedicineAndPharmacies = async () => {
+    const fetchMedicine = async () => {
+      if (!id) return;
+
       try {
-        setLoading(true);
-        
-        // Fetch medicine details
+        // First get the medicine details
         const { data: medicineData, error: medicineError } = await supabase
           .from('medicines')
           .select('*')
@@ -48,10 +73,11 @@ export const MedicineDetails = () => {
           .single();
 
         if (medicineError) throw medicineError;
+        console.log('Medicine:', medicineData);
         setMedicine(medicineData);
 
-        // Get all pharmacies that have this medicine in stock
-        const { data: pharmacyData, error: pharmacyError } = await supabase
+        // Then get the pharmacies that have this medicine in stock
+        const { data: pharmacyData, error } = await supabase
           .from('medicine_pharmacies')
           .select(`
             quantity,
@@ -67,37 +93,32 @@ export const MedicineDetails = () => {
           .eq('medicine_id', id)
           .gt('quantity', 0);
 
-        console.log('Medicine:', medicineData);
+        if (error) throw error;
         console.log('Raw pharmacy data:', pharmacyData);
 
-        if (pharmacyError) throw pharmacyError;
-
         // Format pharmacy data
-        const availablePharmacies = (pharmacyData || [])
-          .filter(item => item.pharmacies && item.quantity > 0)
-          .map(item => ({
-            id: item.pharmacies.id,
-            name: item.pharmacies.name,
-            address: item.pharmacies.location,
-            phone: item.pharmacies.phone,
-            operating_hours: item.pharmacies.hours,
-            image_url: item.pharmacies.image,
-            quantity: item.quantity
-          }))
-          .sort((a, b) => b.quantity - a.quantity);
+        const pharmacyItems = (pharmacyData || []).map((item: any) => ({
+          id: item.pharmacies.id,
+          name: item.pharmacies.name,
+          address: item.pharmacies.location,
+          phone: item.pharmacies.phone,
+          operating_hours: item.pharmacies.hours,
+          image_url: item.pharmacies.image,
+          quantity: Number(item.quantity) || 0,
+          price: medicineData.price // Use price from medicine data
+        }));
 
-        console.log('Available pharmacies:', availablePharmacies);
-        setPharmacies(availablePharmacies);
-      } catch (error) {
-        console.error('Error fetching data:', error);
+        console.log('Available pharmacies:', pharmacyItems);
+        setPharmacies(pharmacyItems);
+      } catch (error: any) {
+        console.log('Error fetching data:', error);
+        toast.error('Error loading medicine details');
       } finally {
         setLoading(false);
       }
     };
 
-    if (id) {
-      fetchMedicineAndPharmacies();
-    }
+    fetchMedicine();
   }, [id]);
 
   if (loading) {
@@ -125,9 +146,9 @@ export const MedicineDetails = () => {
         <div className="flex flex-col md:flex-row gap-8">
           <div className="w-full md:w-1/3">
             <img
-              src={medicine?.image || placeholderImage}
+              className="w-full h-64 object-cover rounded-lg shadow-lg mb-6"
+              src={medicine?.image_url || placeholderImage}
               alt={medicine?.name}
-              className="w-full h-auto rounded-lg shadow-sm"
             />
           </div>
           <div className="w-full md:w-2/3">
@@ -139,7 +160,7 @@ export const MedicineDetails = () => {
               </div>
               <div>
                 <p className="text-gray-600">Price</p>
-                <p className="text-lg font-medium">${medicine?.price}</p>
+                <p className="text-lg font-medium">GH₵{medicine?.price}</p>
               </div>
             </div>
             <div className="mb-6">

@@ -45,12 +45,24 @@ const NewMedicineForm: React.FC<NewMedicineFormProps> = ({ onSubmit, onClose }) 
   const [formData, setFormData] = useState({
     name: '',
     category: '',
-    price: '',
-    quantity: '',
+    price: 0,
+    quantity: 0,
     unit: 'tablets',
     description: '',
     image: null as File | null
   });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    if (name === 'price') {
+      setFormData(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
+    } else if (name === 'quantity') {
+      setFormData(prev => ({ ...prev, [name]: parseInt(value) || 0 }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -71,8 +83,8 @@ const NewMedicineForm: React.FC<NewMedicineFormProps> = ({ onSubmit, onClose }) 
     onSubmit({
       name: formData.name,
       category: formData.category,
-      price: parseFloat(formData.price),
-      quantity: parseInt(formData.quantity),
+      price: formData.price,
+      quantity: formData.quantity,
       unit: formData.unit,
       description: formData.description || '',
       image: formData.image || undefined
@@ -88,8 +100,8 @@ const NewMedicineForm: React.FC<NewMedicineFormProps> = ({ onSubmit, onClose }) 
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-      <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl transform transition-all">
+    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50 backdrop-blur-sm overflow-y-auto">
+      <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl transform transition-all my-8 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-semibold text-gray-900">Add New Medicine</h3>
           <button
@@ -115,7 +127,7 @@ const NewMedicineForm: React.FC<NewMedicineFormProps> = ({ onSubmit, onClose }) 
                 id="name"
                 required
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={handleChange}
                 className="block w-full pl-10 pr-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200 placeholder-gray-400 sm:text-sm bg-white hover:border-gray-400"
                 placeholder="Enter medicine name"
               />
@@ -136,7 +148,7 @@ const NewMedicineForm: React.FC<NewMedicineFormProps> = ({ onSubmit, onClose }) 
                 id="category"
                 required
                 value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                onChange={handleChange}
                 className="block w-full pl-10 pr-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200 placeholder-gray-400 sm:text-sm bg-white hover:border-gray-400"
                 placeholder="Enter category"
               />
@@ -157,9 +169,10 @@ const NewMedicineForm: React.FC<NewMedicineFormProps> = ({ onSubmit, onClose }) 
                 <input
                   type="number"
                   id="price"
+                  name="price"
                   required
                   value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                  onChange={handleChange}
                   className="block w-full pl-10 pr-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200 placeholder-gray-400 sm:text-sm bg-white hover:border-gray-400"
                   placeholder="0.00"
                   step="0.01"
@@ -180,9 +193,10 @@ const NewMedicineForm: React.FC<NewMedicineFormProps> = ({ onSubmit, onClose }) 
                 <input
                   type="number"
                   id="quantity"
+                  name="quantity"
                   required
                   value={formData.quantity}
-                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                  onChange={handleChange}
                   className="block w-full pl-10 pr-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200 placeholder-gray-400 sm:text-sm bg-white hover:border-gray-400"
                   placeholder="0"
                   min="0"
@@ -203,7 +217,7 @@ const NewMedicineForm: React.FC<NewMedicineFormProps> = ({ onSubmit, onClose }) 
               <select
                 id="unit"
                 value={formData.unit}
-                onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                onChange={handleChange}
                 className="block w-full pl-10 pr-10 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200 placeholder-gray-400 sm:text-sm bg-white hover:border-gray-400 appearance-none cursor-pointer"
               >
                 <option value="tablets">Tablets</option>
@@ -230,7 +244,7 @@ const NewMedicineForm: React.FC<NewMedicineFormProps> = ({ onSubmit, onClose }) 
               <textarea
                 id="description"
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={handleChange}
                 className="block w-full pl-10 pr-3 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200 placeholder-gray-400 sm:text-sm bg-white hover:border-gray-400"
                 placeholder="Enter description"
               />
@@ -320,8 +334,8 @@ const EditMedicineModal: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-      <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl transform transition-all">
+    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50 backdrop-blur-sm overflow-y-auto">
+      <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl transform transition-all my-8 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-semibold text-gray-900">Edit Medicine</h3>
           <button
@@ -635,6 +649,11 @@ export const PharmacyInventory: React.FC = () => {
   const [selectedMedicine, setSelectedMedicine] = useState<Medicine | null>(null);
   const [quantity, setQuantity] = useState('');
   const [showAddExistingForm, setShowAddExistingForm] = useState(false);
+
+  const handleMedicineChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const medicine = existingMedicines.find(m => m.id === e.target.value);
+    setSelectedMedicine(medicine || null);
+  };
 
   const handleAddExistingMedicine = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -985,14 +1004,14 @@ export const PharmacyInventory: React.FC = () => {
                       id="medicineId"
                       name="medicineId"
                       required
-                      value={selectedMedicine?.id}
-                      onChange={(e) => setSelectedMedicine(existingMedicines.find(m => m.id === e.target.value))}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      value={selectedMedicine?.id || ''}
+                      onChange={handleMedicineChange}
+                      className="block w-full pl-10 pr-10 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200 sm:text-sm"
                     >
                       <option value="">Select a medicine</option>
                       {existingMedicines.map((medicine) => (
                         <option key={medicine.id} value={medicine.id}>
-                          {medicine.name} - {medicine.category} (₵{medicine.price})
+                          {medicine.name}
                         </option>
                       ))}
                     </select>
@@ -1055,14 +1074,14 @@ export const PharmacyInventory: React.FC = () => {
                     id="medicineId"
                     name="medicineId"
                     required
-                    value={selectedMedicine?.id}
-                    onChange={(e) => setSelectedMedicine(existingMedicines.find(m => m.id === e.target.value))}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    value={selectedMedicine?.id || ''}
+                    onChange={handleMedicineChange}
+                    className="block w-full pl-10 pr-10 py-2.5 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200 sm:text-sm"
                   >
                     <option value="">Select a medicine</option>
                     {existingMedicines.map((medicine) => (
                       <option key={medicine.id} value={medicine.id}>
-                        {medicine.name} - {medicine.category} (₵{medicine.price})
+                        {medicine.name}
                       </option>
                     ))}
                   </select>

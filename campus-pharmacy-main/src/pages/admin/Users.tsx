@@ -307,19 +307,19 @@ export const Users: React.FC = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">User Management</h1>
         <div className="flex space-x-4 mb-6">
-          <button
+          {/* <button
             onClick={() => setShowAddModal(true)}
             className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center transition-colors duration-200"
           >
             <FaUserPlus className="mr-2" /> Add Admin User
-          </button>
+          </button> */}
           <button
             onClick={createPharmacyUsers}
             disabled={creatingPharmacyUsers}
             className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <FaStore className="mr-2" /> 
-            {creatingPharmacyUsers ? 'Creating Pharmacy Users...' : 'Create Pharmacy Users'}
+            {creatingPharmacyUsers ? 'Updating Users...' : 'Update Users'}
           </button>
         </div>
       </div>
@@ -343,7 +343,7 @@ export const Users: React.FC = () => {
         >
           <option value="">All Roles</option>
           <option value="Admin">Admin</option>
-          <option value="Staff">Staff</option>
+          {/* <option value="Staff">Staff</option> */}
           <option value="Pharmacy">Pharmacy</option>
         </select>
         <select
@@ -483,7 +483,7 @@ export const Users: React.FC = () => {
                     >
                       <option value="Admin">Admin</option>
                       <option value="Pharmacist">Pharmacist</option>
-                      <option value="Staff">Staff</option>
+                      {/* <option value="Staff">Staff</option> */}
                     </select>
                   </div>
                   <div>
